@@ -1,0 +1,17 @@
+using gcc ; 
+
+project
+    : requirements <include>./include
+    : usage-requirements <include>./include
+    ;
+
+exe log_sample : 
+	samples/log.cpp  
+	$(BOOST_ROOT)//thread
+	;
+
+exe declare_property_sample :
+	samples/declare_property.cpp ;
+
+exe config_sample :
+	samples/config.cpp ;
