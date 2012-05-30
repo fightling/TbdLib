@@ -11,14 +11,15 @@ namespace tbd
 
 #define TBD_DECLARE_PROPERTY(type,name) \
 	private: 	type 						name##_; \
-	public:   	void  (name)(type _##name)  { name##_=_##name; } \
+	public:   	void  (name)(type const & _##name)  { name##_=_##name; } \
 				type (name)() const        { return name##_; } \
 	private:
 
 #define TBD_DECLARE_PROPERTY_REF(type,name) \
 	private: 	type 						name##_; \
-	public:   	void  (name)(type& _##name)  { name##_=_##name; } \
+	public:   	void  (name)(type const & _##name)  { name##_=_##name; } \
 				type& (name)()        { return name##_; } \
+				type const & (name)() const        { return name##_; } \
 	private:
 
 #define TBD_DECLARE_PROPERTY_PTR(type,name) \
