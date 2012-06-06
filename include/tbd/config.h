@@ -18,7 +18,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include <tbd/declare_property.h>
+#include <tbd/property.h>
 
 using namespace std;
 
@@ -130,10 +130,10 @@ namespace tbd {
 	class ConfigurableObject {
 		public:
 			ConfigurableObject(Config* _config = NULL) : config_(_config) {} 
-			TBD_DECLARE_PROPERTY(Config*,config);
+			TBD_PROPERTY(Config*,config);
 	};
 
-#define TBD_DECLARE_PROPERTY_CFG(type,name,param_name,def_value) \
+#define TBD_PROPERTY_CFG(type,name,param_name,def_value) \
 public:\
 	type (name)() const \
 	{ \
