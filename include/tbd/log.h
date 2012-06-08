@@ -57,8 +57,6 @@
 #include <boost/thread/recursive_mutex.hpp>
 #endif 
 
-using namespace std;
-
 // From:
 // http://www2.hawaii.edu/~yucheng/projects/clocks/jade-netdelay/?file=jade-netdelay.c
 #ifdef OUTPUT_TIMER
@@ -74,15 +72,15 @@ static void timespec_normalize(timespec * t)
 /// @brief: Simple struct for formatting strings with parameters
 struct fmt 
 {
-	fmt(const string& s) { this->operator()(s); }
+	fmt(const std::string& s) { this->operator()(s); }
 	fmt(const char* c)   { this->operator()(c); }
 
 	void operator()(const char* c)
 	{
-		this->operator()(string(c));
+		this->operator()(std::string(c));
 	}
 
-	void operator()(const string& s) 
+	void operator()(const std::string& s) 
 	{ 
 		nParams = 0; buf = s; size_t n = 0;
 		for (size_t i = 0; i < s.length(); i++)
@@ -99,16 +97,16 @@ struct fmt
 	{
 		if (nParams < params.size())
 		{
-			stringstream ss; ss << t;
+      std::stringstream ss; ss << t;
 			params[nParams] = ss.str();
 			nParams++;
 		}
 		return *this;
 	}
 
-	string str() const
+  std::string str() const
 	{ 
-		stringstream ss; size_t n = 0; 
+    std::stringstream ss; size_t n = 0; 
 		for (size_t i = 0; i < buf.length(); i++)
 		{
 			char c = buf[i];
@@ -137,8 +135,8 @@ struct fmt
 			params[i] = "";
 	}
 	private:
-	string buf;
-	vector<string> params;
+  std::string buf;
+  std::vector<std::string> params;
 	size_t nParams;
 };
 
@@ -147,7 +145,7 @@ class Log
 {
 	int level_,curLevel,counter;
 	timespec ts;
-	ostream* output_;
+  std::ostream* output_;
 	static bool destroyed_;
 	static Log *_instance;
 	Log() { init(); };
@@ -159,7 +157,7 @@ class Log
 #ifdef THREAD_SAFE
 		(*output_) << threadBuffers[boost::this_thread::get_id()];
 #endif
-		(*output_) << endl;
+		(*output_) << std::endl;
 
 		_instance = 0;
 		destroyed_ = true;
@@ -194,27 +192,27 @@ class Log
 #define LOCK
 #endif
 
-	template<class T> string colorStr(int color, int bold, char delimiter, const T& t) const
+	template<class T> std::string colorStr(int color, int bold, char delimiter, const T& t) const
 	{
-		stringstream ss;
+    std::stringstream ss;
 #ifdef OUTPUT_COLOR
-		if (output_ == &cout)
+		if (output_ == &std::cout)
 			ss << "\033[" << bold << ";" << color << "m";
 #endif
 		ss << t;
 #ifdef OUTPUT_COLOR
-		if (output_ == &cout) ss << "\033[0m";
+		if (output_ == &std::cout) ss << "\033[0m";
 #endif
 		ss << delimiter;
 		return ss.str();
 	}
 
 
-	string logHeader(string& file, string& function, 
-			int linenumber, int _level, string& type)
+  std::string logHeader(std::string& file, std::string& function, 
+			int linenumber, int _level, std::string& type)
 	{
 #ifdef LOGGING
-		stringstream ss; 
+    std::stringstream ss; 
 		int color = 39;
 #ifdef OUTPUT_COLOR				    //former "default" values	
 		if (type=="ERR") color = COLOR_ERR; //31;  
@@ -249,14 +247,14 @@ class Log
 #endif 
 
 #ifdef OUTPUT_MSG
-		stringstream st; st << type << _level;
+    std::stringstream st; st << type << _level;
 		ss << colorStr(color,1,DELIMITER,st.str());
 #endif
 
 #ifdef OUTPUT_SRC
 		int pPos = 0;
 		for (int i = file.length()-1; i > 0; i--)
-			if (file.substr(i,1)==string("/"))
+			if (file.substr(i,1)==std::string("/"))
 			{ pPos = i+1; break; }
 		file = file.substr(pPos,file.length()-pPos);
 		ss << colorStr(COLOR_FILE,0,':',file); //35
@@ -267,13 +265,13 @@ class Log
 		return ss.str();
 #endif
 #ifndef LOGGING		
-		return string();
+		return std::string();
 #endif
 	}
 
 	template <typename T> void appendThreadBuffer(const T& t)
 	{
-		stringstream ss; ss << t;
+    std::stringstream ss; ss << t;
 #ifdef THREAD_SAFE
 		threadBuffers[boost::this_thread::get_id()] += ss.str();
 #endif 
@@ -288,11 +286,11 @@ class Log
 		counter = 0;
 		level(1); 
 		resetTimer();
-		output(&cout);
+		output(&std::cout);
 	}
-	ostream* output() const { return output_; }
+  std::ostream* output() const { return output_; }
 
-	void output(ostream* _output) { output_ = _output; }
+	void output(std::ostream* _output) { output_ = _output; }
 
 	void resetTimer()
 	{
@@ -308,8 +306,8 @@ class Log
 			(_level < 0) ? 0 : _level;  
 	}
 
-	inline Log& log(string file, string function, 
-			int linenumber, int _level, string type)
+	inline Log& log(std::string file, std::string function, 
+			int linenumber, int _level, std::string type)
 	{
 #ifdef LOGGING
 		LOCK;
@@ -321,7 +319,7 @@ class Log
 			(*output_) << threadBuffers[boost::this_thread::get_id()];
 		}
 #endif
-		(*output_) << endl;
+		(*output_) << std::endl;
 		(*output_) << logHeader(file,function,linenumber,_level,type); 
 
 #ifdef THREAD_SAFE
@@ -362,7 +360,7 @@ class Log
 
 
 #ifdef THREAD_SAFE
-	map<boost::thread::id, std::string> threadBuffers;
+  std::map<boost::thread::id, std::string> threadBuffers;
 #endif
 };
 
