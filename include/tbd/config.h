@@ -20,8 +20,6 @@
 
 #include <tbd/property.h>
 
-using namespace std;
-
 namespace tbd {
 
 	/** @brief 		The Parameter class represents a parameter for the user configuration
@@ -38,29 +36,29 @@ namespace tbd {
 	class Config
 	{
 		public:
-			Config(const string& filename = string())
+			Config(const std::string& filename = std::string())
 			{
 				if (!filename.empty()) read(filename);
 			}
 
-			template <class T> inline T get(const string& key)
+			template <class T> inline T get(const std::string& key)
 			{ 		
 				return boost::lexical_cast<T>(parameters[key]); 
 			}
 
-			template <class T> inline void set(const string key, const T& value)
+			template <class T> inline void set(const std::string key, const T& value)
 			{ 
-				parameters[key] = boost::lexical_cast<string>(value); 
+				parameters[key] = boost::lexical_cast<std::string>(value); 
 			}
 
-			void set(string& key, string& value)
+			void set(std::string& key, std::string& value)
 			{
 				parameters[key] = value;
 			}
 
-			void read(const string& filename)
+			void read(const std::string& filename)
 			{
-				ifstream is;
+        std::ifstream is;
 				try
 				{
 					is.open(filename.c_str());
@@ -69,68 +67,70 @@ namespace tbd {
 					{
 						char line[1024];
 						is.getline(line,sizeof(line));
-						string l(line); boost::trim(l);
-						vector<string> splitVec;
+            std::string l(line); 
+            boost::trim(l);
+            std::vector<std::string> splitVec;
 						boost::split( splitVec, l, boost::is_any_of("="), boost::token_compress_on);
 						if (splitVec.size()<2) continue;
 
-						string key   = splitVec[0]; boost::trim(key); boost::to_upper(key);
-						string value = splitVec[1]; 
+            std::string key   = splitVec[0]; boost::trim(key); boost::to_upper(key);
+            std::string value = splitVec[1]; 
 
 						// Remove comment 
 						size_t commentPos = value.find("#");
-						if (commentPos != string::npos) value = value.substr(0,commentPos-1);
+						if (commentPos != std::string::npos) value = value.substr(0,commentPos-1);
 						boost::trim(value);
 
 						if (key.length()==0) continue;
 						if (key[0] < 65 || key[0] > 90) continue; // Key must begin with a letter!
 
-						parameters.insert(pair<string,string>(key,value));
+						parameters.insert(std::pair<std::string,std::string>(key,value));
 						set(key,value);
-					}
+					} 
 				} catch (std::exception e)
 				{
-					cerr << "Exception reading user configuration file '" << filename << "' :" << e.what() << endl;
-				}
+          std::cerr << "Exception reading user configuration file '" << filename << "' :" << e.what() << std::endl;
+				} 
 
 				is.close();
 			}
 
-			void write(const string& filename)
+			void write(const std::string& filename)
 			{
-				ofstream file;
+        std::ofstream file;
 				try 
 				{
-					file.open(filename.c_str(), ofstream::trunc);
+					file.open(filename.c_str(), std::ofstream::trunc);
 					file << *this;
 				} catch (std::exception e)
-				{
-					cerr << "Exception writing user configuration file '" << filename << "' :" << e.what() << endl;
+				{ 
+          std::cerr << "Exception writing user configuration file '" << filename << "' :" << e.what() << std::endl;
 				}
 				file.close();
 			}
 
-			bool exists(const string& key)
+			bool exists(const std::string& key)
 			{
 				return parameters.count(key) != 0;
 			}
 
-			friend ostream& operator<<(ostream& os, Config& cfg)
+			friend std::ostream& operator<<(std::ostream& os, Config& cfg)
 			{
-				map<string,string>::iterator it;
+        std::map<std::string,std::string>::iterator it;
 					for (it = cfg.parameters.begin(); it != cfg.parameters.end(); ++it)
-						os << it->first << " = " << it->second << endl;
+						os << it->first << " = " << it->second << std::endl;
 				return os;
 			}
 
 		private:
-			map<string,string> parameters;
+      std::map<std::string,std::string> parameters;
 	};
 
 	class ConfigurableObject {
 		public:
 			ConfigurableObject(Config* _config = NULL) : config_(_config) {} 
 			TBD_PROPERTY(Config*,config);
+      TBD_PROPERTY_RO(std::string,objName);
 	};
 
 #define TBD_PROPERTY_CFG(type,name,param_name,def_value) \
