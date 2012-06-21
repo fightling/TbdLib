@@ -329,7 +329,7 @@ class Log
 		return *this;
 	}
 
-	inline Log& operator<< (fmt& f)
+	inline Log& operator<< (const fmt& f)
 	{
 #ifdef LOGGING
 		if (curLevel <= level_) 
