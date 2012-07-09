@@ -141,6 +141,7 @@ struct fmt
 };
 
 /// @brief: Singleton class for Logging
+
 class Log 
 {
 	int level_,curLevel,counter;

@@ -18,6 +18,7 @@ namespace tbd {
   private: type name##_; \
   public:  void (name)(type const & _##name) { name##_=_##name; monitor(); } \
            const type& (name)() const { return name##_; } \
+           type& (name)() { return name##_; } \
 	private:
 
 /// @}
