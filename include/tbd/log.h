@@ -57,6 +57,8 @@
 #include <boost/thread/recursive_mutex.hpp>
 #endif 
 
+
+
 // From:
 // http://www2.hawaii.edu/~yucheng/projects/clocks/jade-netdelay/?file=jade-netdelay.c
 #ifdef OUTPUT_TIMER
@@ -141,7 +143,8 @@ struct fmt
 };
 
 /// @brief: Singleton class for Logging
-
+namespace tbd
+{
 class Log 
 {
 	int level_,curLevel,counter;
@@ -365,8 +368,10 @@ class Log
 #endif
 };
 
-#define LOG Log::instance() 
-#define LOG_INIT Log *Log::_instance = 0; bool Log::destroyed_ = false;
+}
+
+#define LOG tbd::Log::instance() 
+#define LOG_INIT tbd::Log *tbd::Log::_instance = 0; bool tbd::Log::destroyed_ = false; 
 
 #define LOG_(lvl,type) LOG->log(__FILE__,__FUNCTION__,__LINE__,(lvl),(type))
 
@@ -374,5 +379,5 @@ class Log
 #define LOG_MSG_(lvl) LOG_((lvl),"MSG")
 #define LOG_ERR LOG_(0,"ERR")
 #define LOG_WRN LOG_(0,"WRN")
-#define LOG_WRN_(lvl) LOG((lvl),"WRN") 
+#define LOG_WRN_(lvl) LOG_((lvl),"WRN") 
 
