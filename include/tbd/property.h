@@ -33,11 +33,18 @@ namespace tbd {
   public:  type (name)() const { return name##_; } \
   private:
 
+#define TBD_PROPERTY_REF_RO(type,name) \
+  private: type name##_; \
+  public:  const type& (name)() const { return name##_; } \
+  private:
+
 #define TBD_PROPERTY(type,name) \
   TBD_PROPERTY_MON(type,name,tbd::null_monitor);
 
 #define TBD_PROPERTY_REF(type,name) \
   TBD_PROPERTY_REF_MON(type,name,tbd::null_monitor);
+
+
 
 #define TBD_PROPERTY_PTR(type,name) \
   private: type* name##_; \
