@@ -27,7 +27,7 @@
 #include <vector>
 #include <iostream>
 
-#include "tbd/declare_property.h" 
+#include "tbd/property.h" 
 
 using namespace std;
 
@@ -36,19 +36,19 @@ using namespace std;
 class Foo
 {
 	// A simple bool value
-	TBD_DECLARE_PROPERTY(bool,bar1);
+	TBD_PROPERTY(bool,bar1);
 	
 	// A string
-	TBD_DECLARE_PROPERTY(string,bar2);
+	TBD_PROPERTY(string,bar2);
 	
 	// Returns the reference to the member variable
-	TBD_DECLARE_PROPERTY_REF(vector<int>,vecbar1);
+	TBD_PROPERTY_REF(vector<int>,vecbar1);
 
 	// Read-only member variable
-	TBD_DECLARE_PROPERTY_RO(vector<int>,vecbar2);
+	TBD_PROPERTY_RO(vector<int>,vecbar2);
 	
 	// Returns pointer to the member variable
-	TBD_DECLARE_PROPERTY_PTR(vector<int>,vecbar3);
+	TBD_PROPERTY_PTR(vector<int>,vecbar3);
 
 public:
 	void generate_vecbar2()

@@ -36,16 +36,16 @@ using namespace std;
 class Foo : public tbd::ConfigurableObject
 {
 	// Preprocessor macros to declare read-only properties which are read from config
-	TBD_DECLARE_PROPERTY_CFG(float,bar1,"BAR1",3.1415f);
-	TBD_DECLARE_PROPERTY_CFG(string,bar2,"BAR2","Test");
+	TBD_PROPERTY_CFG(float,bar1,3.1415f);
+	TBD_PROPERTY_CFG(string,bar2,"Test");
 
 public:
-	Foo(tbd::Config* _config = NULL) : ConfigurableObject(_config) {}
+	Foo(tbd::Config* _config = NULL) : ConfigurableObject("Foo",_config) {}
 	
 	void print()
 	{
-		cout << bar1_param() << ": " << bar1() << ", default: " << bar1_def() << endl;
-		cout << bar2_param() << ": " << bar2() << ", default: " << bar2_def() << endl;
+		cout << bar1_path() << ": " << bar1() << ", default: " << bar1_def() << endl;
+		cout << bar2_path() << ": " << bar2() << ", default: " << bar2_def() << endl;
 	}
 };
 
@@ -62,9 +62,11 @@ int main(int ac, char* av[])
 	cout << "Config: " << endl;
 	cout << config;
 
+  
+
 	// Change some values
-	config.set(test.bar1_param(),"2.178");
-	config.set(test.bar2_param(),"Yeah!");
+	config.put(test.bar1_path(),"2.178");
+	config.put(test.bar2_path(),"Yeah!");
 
 	// Print out changes values
 	cout << "### After: " << endl;
@@ -74,9 +76,9 @@ int main(int ac, char* av[])
 
 	// Read and write config
 	cout << "### Read and write test with NEW_PARAM: " << endl;
-	config.set("NEW_PARAM","FOO");
-	config.write("sample.cfg");
-	config.read("sample.cfg");
+	config.put("NEW_PARAM","FOO");
+	config.save("sample.cfg");
+	config.load("sample.cfg");
 	cout << config;
 
 	return 0;

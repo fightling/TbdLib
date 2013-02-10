@@ -1,8 +1,23 @@
-using gcc ; 
+# use clang cause gcc is eighties
+using clang 
+  : 3.1 # version
+  : # compiler
+  : # options
+  <cxxflags>-std=c++11  # use new C++11 standard
+  <cxxflags>-ferror-limit=1 # stop at first error
+  <cxxflags>-fcolor-diagnostics # color my life
+  ;
+
+lib RT : : <name>rt <search>/lib ;
 
 project
-    : requirements <include>./include
-    : usage-requirements <include>./include
+    : requirements 
+      <include>./include
+      #libraries to use
+      <library>RT
+    : usage-requirements 
+        #include paths    
+        <include>./include
     ;
 
 exe log_sample : 

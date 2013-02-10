@@ -10,18 +10,16 @@
  */
 #pragma once
 
-#include <map>
-#include <vector>
-#include <string>
-#include <fstream>
-
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
-#include <tbd/property.h>
+#include "property.h"
 
-namespace tbd {
 
+namespace tbd 
+{
 	/** @brief 		The Parameter class represents a parameter for the user configuration
 	 *  @details	The key is stored as an Id
 	 *  			The value is always stored as string
@@ -33,117 +31,81 @@ namespace tbd {
 	 *
 	 * 				Object is not responsible for validating formats. 0 is returned if conversion from string fails
 	 */
-	class Config
+	struct Config : boost::property_tree::ptree
 	{
-		public:
-			Config(const std::string& filename = std::string())
-			{
-				if (!filename.empty()) read(filename);
-			}
+		Config(const std::string& filename = std::string())
+		{
+			if (!filename.empty()) load(filename);
+		}
 
-			template <class T> inline T get(const std::string& key)
-			{ 		
-				return boost::lexical_cast<T>(parameters[key]); 
-			}
+    void load(const std::string& _filename)
+    {
+      boost::property_tree::json_parser::read_json(_filename,*dynamic_cast<boost::property_tree::ptree*>(this));
+    }
 
-			template <class T> inline void set(const std::string key, const T& value)
-			{ 
-				parameters[key] = boost::lexical_cast<std::string>(value); 
-			}
+    void save(const std::string& _filename) const
+    {
+      boost::property_tree::json_parser::write_json(_filename,boost::property_tree::ptree(*this));
+    }
 
-			void set(std::string& key, std::string& value)
-			{
-				parameters[key] = value;
-			}
+    friend std::ostream& operator<<(std::ostream& _os, Config& _config)
+    {
+      _config.print(_os,0,_config);
+      return _os;
+    }
 
-			void read(const std::string& filename)
-			{
-        std::ifstream is;
-				try
-				{
-					is.open(filename.c_str());
+  private:
+    void print(std::ostream& _os, const int _depth, 
+               const boost::property_tree::ptree& _tree) 
+    {  
+      using std::string;
+      for (auto& _v : _tree.get_child("") )
+      {
+        auto& _subtree = _v.second;
+        auto _nodeStr = _tree.get<string>(_v.first);
+      
+        // print current node  
+        _os << string("").assign(_depth*2,' ') << "  " << _v.first;  
+        if (!_subtree.empty()) _os  << ": " << std::endl;  
 
-					while (is.good())
-					{
-						char line[1024];
-						is.getline(line,sizeof(line));
-            std::string l(line); 
-            boost::trim(l);
-            std::vector<std::string> splitVec;
-						boost::split( splitVec, l, boost::is_any_of("="), boost::token_compress_on);
-						if (splitVec.size()<2) continue;
+        if ( !_nodeStr.empty() )
+        {
+          _os << "=\"" << _tree.get<string>(_v.first) << "\"" << std::endl;  
+        }
+        // recursive go down the hierarchy  
+        print(_os,_depth+1,_subtree);  
+      }
+    }
+  };  
 
-            std::string key   = splitVec[0]; boost::trim(key); boost::to_upper(key);
-            std::string value = splitVec[1]; 
-
-						// Remove comment 
-						size_t commentPos = value.find("#");
-						if (commentPos != std::string::npos) value = value.substr(0,commentPos-1);
-						boost::trim(value);
-
-						if (key.length()==0) continue;
-						if (key[0] < 65 || key[0] > 90) continue; // Key must begin with a letter!
-
-						parameters.insert(std::pair<std::string,std::string>(key,value));
-						set(key,value);
-					} 
-				} catch (std::exception e)
-				{
-          std::cerr << "Exception reading user configuration file '" << filename << "' :" << e.what() << std::endl;
-				} 
-
-				is.close();
-			}
-
-			void write(const std::string& filename)
-			{
-        std::ofstream file;
-				try 
-				{
-					file.open(filename.c_str(), std::ofstream::trunc);
-					file << *this;
-				} catch (std::exception e)
-				{ 
-          std::cerr << "Exception writing user configuration file '" << filename << "' :" << e.what() << std::endl;
-				}
-				file.close();
-			}
-
-			bool exists(const std::string& key)
-			{
-				return parameters.count(key) != 0;
-			}
-
-			friend std::ostream& operator<<(std::ostream& os, Config& cfg)
-			{
-        std::map<std::string,std::string>::iterator it;
-					for (it = cfg.parameters.begin(); it != cfg.parameters.end(); ++it)
-						os << it->first << " = " << it->second << std::endl;
-				return os;
-			}
-
-		private:
-      std::map<std::string,std::string> parameters;
+	struct ConfigurableObject 
+  {
+		ConfigurableObject(const std::string& _objName, Config* _config = nullptr) : 
+      objName_(_objName), config_(_config) {} 
+      
+    TBD_PROPERTY_RO(std::string,objName)
+		TBD_PROPERTY(Config*,config)
 	};
 
-	class ConfigurableObject {
-		public:
-			ConfigurableObject(Config* _config = NULL) : config_(_config) {} 
-			TBD_PROPERTY(Config*,config);
-      TBD_PROPERTY_RO(std::string,objName);
-	};
-
-#define TBD_PROPERTY_CFG(type,name,param_name,def_value) \
+#define TBD_PROPERTY_CFG(type,name,def_value) \
 public:\
-	type (name)() const \
+	type name() const \
 	{ \
-		if (config()) { \
-		if (config()->exists((param_name))) return config()->get<type>((param_name)); \
-		else config()->set<type>(string(param_name),def_value); } \
-		return def_value; }\
-	\
-	inline string name##_param() const { return string(param_name); } \
+    return config() ? config()->get(name##_path(),def_value) : def_value;\
+  }\
+  bool name(const type& _value) \
+  {\
+    if (config())\
+    {\
+      if (_value == config()->get(name##_path(),def_value)) return false;\
+      config()->put(name##_path(),_value);\
+      return true;\
+    }\
+    return _value != def_value;\
+  }\
+  \
+	inline std::string name##_path() const { return objName() + "." + std::string(#name); }\
 	inline type name##_def() const { return def_value; }\
 private:
-
+  
 }
