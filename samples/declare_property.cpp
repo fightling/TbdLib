@@ -47,9 +47,6 @@ class Foo
 	// Read-only member variable
 	TBD_PROPERTY_RO(vector<int>,vecbar2);
 	
-	// Returns pointer to the member variable
-	TBD_PROPERTY_PTR(vector<int>,vecbar3);
-
 public:
 	void generate_vecbar2()
 	{
@@ -85,15 +82,6 @@ int main(int ac, char* av[])
 	cout << "vecbar2: ";
 	for (size_t i = 0; i < vecbar2.size(); i++) 
 		cout << vecbar2[i] << ", ";
-	cout << endl;
-
-	// Set pointer to vecbar1
-	test.vecbar3(&vecbar1);
-	// Change some values 
-	test.vecbar3()->at(2) = 13;
-	cout << "vecbar3: ";
-	for (size_t i = 0; i < test.vecbar3()->size(); i++) // Output
-		cout << test.vecbar3()->at(i) << ", ";
 	cout << endl;
 
 	return 0;

@@ -36,8 +36,9 @@ using namespace std;
 class Foo : public tbd::ConfigurableObject
 {
 	// Preprocessor macros to declare read-only properties which are read from config
-	TBD_PROPERTY_CFG(float,bar1,3.1415f);
-	TBD_PROPERTY_CFG(string,bar2,"Test");
+	TBD_PROPERTY_CFG(float,bar1,3.1415f)
+	TBD_PROPERTY_CFG(string,bar2,"Test")
+  TBD_PROPERTY_CFG_ARRAY(std::vector<int>,bar3,1,2,3)
 
 public:
 	Foo(tbd::Config* _config = NULL) : ConfigurableObject("Foo",_config) {}
@@ -47,6 +48,17 @@ public:
 		cout << bar1_path() << ": " << bar1() << ", default: " << bar1_def() << endl;
 		cout << bar2_path() << ": " << bar2() << ", default: " << bar2_def() << endl;
 	}
+};
+
+class Bar : public tbd::ModifyableObject
+{
+  TBD_PROPERTY_MODIFY_CFG(float,foo1,42)
+  TBD_PROPERTY_MODIFY_CFG_REF(string,foo2,"Foo")
+  TBD_PROPERTY_MODIFY_CFG_ARRAY(std::vector<int>,foo3,3,5,7)
+
+public:
+  Bar() : tbd::ModifyableObject("Bar") {}
+
 };
 
 
@@ -62,11 +74,46 @@ int main(int ac, char* av[])
 	cout << "Config: " << endl;
 	cout << config;
 
-  
+
 
 	// Change some values
 	config.put(test.bar1_path(),"2.178");
 	config.put(test.bar2_path(),"Yeah!");
+  std::cout << (test.bar2("Yeah2") ? std::string("Value changed to " + test.bar2()) : 
+                                      "Value didn't change.") << std::endl;
+  std::cout << (test.bar2("Yeah2") ? std::string("Value changed to " + test.bar2()) : 
+                                      "Value didn't change.") << std::endl;
+
+  boost::property_tree::ptree children;
+  std::vector<int> vec = { 1,2,3,4,5 };
+  for (auto& i : vec)
+  {
+    boost::property_tree::ptree child;
+    child.put("",i);
+    children.push_back(std::make_pair("",child));
+  }
+  config.put_child("vec",children);
+  
+  for (auto& v : config.get_child("vec"))
+  {
+    if (v.second.empty() && config.get<string>(v.first).empty())
+    {
+      std::cout << v.second.get_value<int>() << ", ";
+    }
+  }
+  cout << endl;
+  
+  children.clear();
+  vec = { 2,3,4,5 };
+  for (auto& i : vec)
+  {
+    boost::property_tree::ptree child;
+    child.put("",i);
+    children.push_back(std::make_pair("",child));
+  }
+  
+  config.put_child("vec",children);
+
 
 	// Print out changes values
 	cout << "### After: " << endl;
@@ -80,6 +127,10 @@ int main(int ac, char* av[])
 	config.save("sample.cfg");
 	config.load("sample.cfg");
 	cout << config;
+
+  config.load("json.cfg");
+  cout << config;
+  config.save("json_test.cfg");
 
 	return 0;
 }

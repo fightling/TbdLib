@@ -4,6 +4,7 @@
 namespace tbd {
   inline void null_monitor() {}
 }
+
 /** @defgroup tomoPropertyManaged managed properties
  * @brief variable declaration including getter/setter/monitor
  * @{
@@ -22,6 +23,30 @@ namespace tbd {
 	private:
 
 /// @}
+
+#define TBD_PROPERTY_MODIFY_FLAG() \
+  protected:\
+            void update() { modify_ = false; }\
+            bool modify_; \
+  public:  template<class T> bool modify(const T& _old, const T& _new ) \
+           { if (_old == _new) return false;\
+             modify_ = true;\
+             return true; \
+           } \
+           bool modified() const { return modify_; } 
+
+#define TBD_PROPERTY_MODIFY(type,name) \
+  private: type name##_; \
+  public:  void (name)(type const & _##name) { if( modify(name##_,_##name) ) name##_=_##name; } \
+           type (name)() const { return name##_; } \
+  private:
+
+#define TBD_PROPERTY_REF_MODIFY(type,name) \
+  private: type name##_; \
+  public:  void (name)(type const & _##name) { if( modify(name##_,_##name) ) name##_=_##name; } \
+           const type& (name)() const { return name##_; } \
+           type& (name)() { modify_ = true; return name##_; } \
+  private:
 
 /** @defgroup tomoPropertyBasic basic properties
  * @brief variable declaration including getter/setter w/o monitoring
@@ -45,12 +70,6 @@ namespace tbd {
   TBD_PROPERTY_REF_MON(type,name,tbd::null_monitor);
 
 
-
-#define TBD_PROPERTY_PTR(type,name) \
-  private: type* name##_; \
-	public:  void (name)(type* _##name) { name##_=_##name; } \
-          type* (name)() const { return name##_; } \
-  private:
 
 /// @}
 

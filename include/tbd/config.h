@@ -20,23 +20,34 @@
 
 namespace tbd 
 {
-	/** @brief 		The Parameter class represents a parameter for the user configuration
-	 *  @details	The key is stored as an Id
-	 *  			The value is always stored as string
-	 *  			possible INTEGER data type string formats:
-	 * 					only DECIMAL: -11244 (signed), 12133(unsigned)
-	 *
-	 * 				possible FLOAT data type string formats:
-	 * 					only DECIMAL: 365.454 or -45.23 or 6E-12 or 6e-12 or -6e-12 or 6E+12 etc ...
-	 *
-	 * 				Object is not responsible for validating formats. 0 is returned if conversion from string fails
-	 */
-	struct Config : boost::property_tree::ptree
+  /// Config class for reading and writing JSON files and storing in a boost property tree
+  struct Config : boost::property_tree::ptree
 	{
 		Config(const std::string& filename = std::string())
 		{
 			if (!filename.empty()) load(filename);
 		}
+
+    template<typename CNTR>
+    void put_array(const std::string& _path, const CNTR& _cntr)
+    {
+      boost::property_tree::ptree&& _children = fromArray(_cntr);
+      put_child(_path,_children);
+    }
+
+    template<typename CNTR>
+    CNTR get_array(const std::string& _path, const CNTR& _defValue) const
+    {
+      CNTR _result;
+      const auto& _child = get_child(_path,fromArray(_defValue));
+
+      for (auto& _v : _child)
+      {
+        if (_v.second.empty() && get<std::string>(_v.first).empty())\
+          _result.push_back(_v.second.template get_value<typename CNTR::value_type>());
+      }
+      return _result;
+    }
 
     void load(const std::string& _filename)
     {
@@ -55,37 +66,74 @@ namespace tbd
     }
 
   private:
+    template<typename CNTR>
+    boost::property_tree::ptree fromArray(const CNTR& _cntr) const
+    {
+      boost::property_tree::ptree _children;
+      for (auto& _v : _cntr)
+      {
+        boost::property_tree::ptree _child;
+        _child.put("",_v);
+        _children.push_back(std::make_pair("",_child));
+      }
+      return _children;
+    }
+
     void print(std::ostream& _os, const int _depth, 
-               const boost::property_tree::ptree& _tree) 
+               const boost::property_tree::ptree& _tree) const
     {  
       using std::string;
-      for (auto& _v : _tree.get_child("") )
+      for (const auto& _v : _tree.get_child("") )
       {
-        auto& _subtree = _v.second;
+        const auto& _subtree = _v.second;
         auto _nodeStr = _tree.get<string>(_v.first);
       
         // print current node  
         _os << string("").assign(_depth*2,' ') << "  " << _v.first;  
-        if (!_subtree.empty()) _os  << ": " << std::endl;  
-
+        if (!_subtree.empty())
+        { 
+          _os  << ": " << std::endl;  
+        }
         if ( !_nodeStr.empty() )
         {
           _os << "=\"" << _tree.get<string>(_v.first) << "\"" << std::endl;  
+        } else
+        {
+          if (_subtree.empty())
+            /// We have an array element here
+            _os << "\"" << _v.second.get_value<string>() << "\"" << std::endl;
         }
+
         // recursive go down the hierarchy  
         print(_os,_depth+1,_subtree);  
       }
     }
   };  
 
-	struct ConfigurableObject 
+  struct ModifyableObject 
   {
-		ConfigurableObject(const std::string& _objName, Config* _config = nullptr) : 
-      objName_(_objName), config_(_config) {} 
-      
-    TBD_PROPERTY_RO(std::string,objName)
-		TBD_PROPERTY(Config*,config)
+    typedef Config config_type;
+
+    ModifyableObject(const std::string& _pathName) : pathName_(_pathName) {}
+
+    TBD_PROPERTY_MODIFY_FLAG()
+
+    TBD_PROPERTY_REF_RO(std::string,pathName)
 	};
+
+  struct ConfigurableObject
+  {
+    typedef Config config_type;
+		
+    ConfigurableObject(const std::string& _pathName, config_type* _config = nullptr) : 
+      pathName_(_pathName), config_(_config) {} 
+      
+    TBD_PROPERTY_REF_RO(std::string,pathName)
+		TBD_PROPERTY(config_type*,config)
+  };
+
+#define TBD_PROPERTY_CFG_PATHNAME(name) \
+	inline std::string name##_path() const { return pathName() + "." + std::string(#name); }\
 
 #define TBD_PROPERTY_CFG(type,name,def_value) \
 public:\
@@ -95,17 +143,63 @@ public:\
   }\
   bool name(const type& _value) \
   {\
-    if (config())\
-    {\
-      if (_value == config()->get(name##_path(),def_value)) return false;\
-      config()->put(name##_path(),_value);\
-      return true;\
-    }\
-    return _value != def_value;\
+    if (!config()) return false;\
+    \
+    if (_value == name()) return false;\
+    config()->put(name##_path(),_value);\
+    return true;\
   }\
-  \
-	inline std::string name##_path() const { return objName() + "." + std::string(#name); }\
+  TBD_PROPERTY_CFG_PATHNAME(name)\
 	inline type name##_def() const { return def_value; }\
 private:
+
+#define TBD_PROPERTY_CFG_ARRAY_BASE(type,name,...)\
+  TBD_PROPERTY_CFG_PATHNAME(name)\
+  inline type name##_def() const\
+  {\
+    type _result = { __VA_ARGS__ }; \
+    return _result;\
+  }
+
+#define TBD_PROPERTY_CFG_ARRAY(type,name,...)\
+public:\
+  type name() const \
+  {\
+    if (!config()) return name##_def();\
+    return config()->get_array(name##_path(),name##_def());\
+  }\
+  bool name(const type& _cntr) \
+  {\
+    if (!config()) return false;\
+    if (name() == _cntr) return false;\
+    config()->put_array(name##_path(),_cntr);\
+    return true;\
+  }\
+  TBD_PROPERTY_CFG_ARRAY_BASE(type,name,__VA_ARGS__)\
+private:
+
+#define TBD_PROPERTY_MODIFY_CFG_WRITE_ONLY(type,name,def_value)\
+  public:  void (name)(const config_type* _config){\
+              type _##name = _config ? _config->get(name##_path(),def_value) : def_value;\
+              name(_##name); }\
+  TBD_PROPERTY_CFG_PATHNAME(name)\
+  private:
+
+#define TBD_PROPERTY_MODIFY_CFG(type,name,def_value) \
+  TBD_PROPERTY_MODIFY(type,name)\
+  TBD_PROPERTY_MODIFY_CFG_WRITE_ONLY(type,name,def_value)\
+
+#define TBD_PROPERTY_MODIFY_CFG_REF(type,name,def_value) \
+  TBD_PROPERTY_REF_MODIFY(type,name)\
+  TBD_PROPERTY_MODIFY_CFG_WRITE_ONLY(type,name,def_value)
+
+#define TBD_PROPERTY_MODIFY_CFG_ARRAY(type,name,...)\
+  public:  void (name)(const config_type* _config){\
+              type _##name = _config ? _config->get_array(name##_path(),name##_def()) : name##_def();\
+              name(_##name); }\
+  TBD_PROPERTY_CFG_ARRAY_BASE(type,name,__VA_ARGS__)\
+  TBD_PROPERTY_REF_MODIFY(type,name)\
   
 }
+
+
