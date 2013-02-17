@@ -20,23 +20,27 @@
 
 namespace tbd 
 {
+  typedef boost::property_tree::path ConfigPath;
+
   /// Config class for reading and writing JSON files and storing in a boost property tree
   struct Config : boost::property_tree::ptree
 	{
-		Config(const std::string& filename = std::string())
+    typedef ConfigPath path_type;
+		
+    Config(const std::string& filename = std::string())
 		{
 			if (!filename.empty()) load(filename);
 		}
 
     template<typename CNTR>
-    void put_array(const std::string& _path, const CNTR& _cntr)
+    void put_array(const path_type& _path, const CNTR& _cntr)
     {
       boost::property_tree::ptree&& _children = fromArray(_cntr);
       put_child(_path,_children);
     }
 
     template<typename CNTR>
-    CNTR get_array(const std::string& _path, const CNTR& _defValue) const
+    CNTR get_array(const path_type& _path, const CNTR& _defValue) const
     {
       CNTR _result;
       const auto& _child = get_child(_path,fromArray(_defValue));
@@ -113,27 +117,29 @@ namespace tbd
   struct ModifyableObject 
   {
     typedef Config config_type;
+    typedef typename config_type::path_type path_type;
 
-    ModifyableObject(const std::string& _pathName) : pathName_(_pathName) {}
+    ModifyableObject(const path_type& _pathName) : pathName_(_pathName) {}
 
     TBD_PROPERTY_MODIFY_FLAG()
 
-    TBD_PROPERTY_REF_RO(std::string,pathName)
+    TBD_PROPERTY_REF_RO(path_type,pathName)
 	};
 
   struct ConfigurableObject
   {
     typedef Config config_type;
-		
-    ConfigurableObject(const std::string& _pathName, config_type* _config = nullptr) : 
+    typedef typename config_type::path_type path_type;
+
+    ConfigurableObject(const path_type& _pathName, config_type* _config = nullptr) : 
       pathName_(_pathName), config_(_config) {} 
       
-    TBD_PROPERTY_REF_RO(std::string,pathName)
+    TBD_PROPERTY_REF_RO(path_type,pathName)
 		TBD_PROPERTY(config_type*,config)
   };
 
 #define TBD_PROPERTY_CFG_PATHNAME(name) \
-	inline std::string name##_path() const { return pathName() + "." + std::string(#name); }\
+	inline path_type name##_path() const { return pathName() / std::string(#name); }
 
 #define TBD_PROPERTY_CFG(type,name,def_value) \
 public:\
