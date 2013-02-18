@@ -31,7 +31,7 @@
 #define OUTPUT_TIME
 #define OUTPUT_COUNTER
 #define OUTPUT_TIMER
-#define OUTPUT_COLOR
+//#define OUTPUT_COLOR
 #define OUTPUT_MSG
 #define OUTPUT_SRC
 //#define THREAD_SAFE

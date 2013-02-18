@@ -139,7 +139,7 @@ namespace tbd
   };
 
 #define TBD_PROPERTY_CFG_PATHNAME(name) \
-	inline path_type name##_path() const { return pathName() / std::string(#name); }
+	inline path_type name##_path() const { return pathName() / path_type(std::string(#name)); }
 
 #define TBD_PROPERTY_CFG(type,name,def_value) \
 public:\
