@@ -69,6 +69,17 @@ namespace tbd {
 #define TBD_PROPERTY_REF(type,name) \
   TBD_PROPERTY_REF_MON(type,name,tbd::null_monitor);
 
+#define TBD_PROPERTY_TYPEDEF(type,name)\
+  TBD_PROPERTY(type,name)\
+public:\
+  typedef type name##_type;\
+private:
+
+#define TBD_PROPERTY_REF_TYPEDEF(type,name)\
+  TBD_PROPERTY_REF(type,name)\
+public:\
+  typedef type name##_type;\
+private:
 
 
 /// @}
