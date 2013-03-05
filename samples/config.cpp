@@ -45,8 +45,8 @@ public:
 	
 	void print()
 	{
-		cout << bar1_path() << ": " << bar1() << ", default: " << bar1_def() << endl;
-		cout << bar2_path() << ": " << bar2() << ", default: " << bar2_def() << endl;
+		//cout << bar1_path().str() << ": " << bar1() << ", default: " << bar1_def() << endl;
+		//cout << bar2_path().str() << ": " << bar2() << ", default: " << bar2_def() << endl;
 	}
 };
 
