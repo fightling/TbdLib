@@ -11,7 +11,6 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -55,7 +54,7 @@ namespace tbd
 
     void load(const std::string& _filename)
     {
-      boost::property_tree::json_parser::read_json(_filename,*dynamic_cast<boost::property_tree::ptree*>(this));
+      boost::property_tree::json_parser::read_json(_filename,*static_cast<boost::property_tree::ptree*>(this));
     }
 
     void save(const std::string& _filename) const

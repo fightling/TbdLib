@@ -53,6 +53,7 @@ public:
 	
 	void print()
 	{
+<<<<<<< HEAD
     cout << "Print #" << print_ << endl;
     cout << "bar1: " << bar1() << endl;
 		cout << "bar2: " << bar2() << endl;
@@ -62,6 +63,11 @@ public:
   }
 
   static int print_;
+=======
+		//cout << bar1_path().str() << ": " << bar1() << ", default: " << bar1_def() << endl;
+		//cout << bar2_path().str() << ": " << bar2() << ", default: " << bar2_def() << endl;
+	}
+>>>>>>> 041ed31f585ae360631e824ecf9d8544536076c3
 };
 
 
