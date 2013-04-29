@@ -64,10 +64,10 @@ namespace tbd {
   private:
 
 #define TBD_PROPERTY(type,name) \
-  TBD_PROPERTY_MON(type,name,tbd::null_monitor);
+  TBD_PROPERTY_MON(type,name,tbd::null_monitor)
 
 #define TBD_PROPERTY_REF(type,name) \
-  TBD_PROPERTY_REF_MON(type,name,tbd::null_monitor);
+  TBD_PROPERTY_REF_MON(type,name,tbd::null_monitor)
 
 #define TBD_PROPERTY_TYPEDEF(type,name)\
   TBD_PROPERTY(type,name)\
