@@ -28,53 +28,85 @@
 #include <iostream>
 
 #include "tbd/config.h" 
+#include "tbd/configurable.h" 
 
 using namespace std;
 
 #define NUM_ELEMENTS 10
 
-class Foo : public tbd::ConfigurableObject
+namespace 
 {
-	// Preprocessor macros to declare read-only properties which are read from config
-	TBD_PROPERTY_CFG(float,bar1,3.1415f)
-	TBD_PROPERTY_CFG(string,bar2,"Test")
-  TBD_PROPERTY_CFG_ARRAY(std::vector<int>,bar3,1,2,3)
+  TBD_CONFIG_PROPERTY(float,Bar1,bar1,0.4)
+  TBD_CONFIG_PROPERTY(std::string,Bar2,bar2,"Test")
+  TBD_CONFIG_PROPERTY(int,Bar3,bar3,10)
+  TBD_CONFIG_PROPERTY_ARRAY(std::vector<int>,Bar4,bar4,1,2,3,4)
 
+  TBD_PROPERTYSET(PropertySet1,Bar1,Bar2)
+  TBD_PROPERTYSET(PropertySet2,Bar3,Bar4)
+}
+
+class Foo : 
+  public tbd::Configurable<Bar1,Bar2>
+{
 public:
-	Foo(tbd::Config* _config = NULL) : ConfigurableObject("Foo",_config) {}
+	Foo() : tbd::Configurable<Bar1,Bar2>("Foo") {}
 	
 	void print()
 	{
-		cout << bar1_path() << ": " << bar1() << ", default: " << bar1_def() << endl;
-		cout << bar2_path() << ": " << bar2() << ", default: " << bar2_def() << endl;
+<<<<<<< HEAD
+    cout << "Print #" << print_ << endl;
+    cout << "bar1: " << bar1() << endl;
+		cout << "bar2: " << bar2() << endl;
+    cout << endl;
+
+    print_++;
+  }
+
+  static int print_;
+=======
+		//cout << bar1_path().str() << ": " << bar1() << ", default: " << bar1_def() << endl;
+		//cout << bar2_path().str() << ": " << bar2() << ", default: " << bar2_def() << endl;
 	}
+>>>>>>> 041ed31f585ae360631e824ecf9d8544536076c3
 };
 
-class Bar : public tbd::ModifyableObject
+
+class Bar :
+  public tbd::Configurable<PropertySet1,Bar3,Bar4>
 {
-  TBD_PROPERTY_MODIFY_CFG(float,foo1,42)
-  TBD_PROPERTY_MODIFY_CFG_REF(string,foo2,"Foo")
-  TBD_PROPERTY_MODIFY_CFG_ARRAY(std::vector<int>,foo3,3,5,7)
-
 public:
-  Bar() : tbd::ModifyableObject("Bar") {}
-
+  Bar() : tbd::Configurable<PropertySet1,Bar3,Bar4>("Bar") {}
 };
 
+
+int Foo::print_ = 0;
 
 int main(int ac, char* av[])
 {
 	// Instantiate an object of class 'Foo'
 	tbd::Config config;
-	Foo test(&config);
+	Foo test;
 
-	// Print out the initial default values
-	cout << "### Before: " << endl;
+  test.bar1(10);
+  test.bar2("Test1");
 	test.print();
-	cout << "Config: " << endl;
-	cout << config;
 
+  test.save(config);
+  std::cout << config;
+	
+  test.bar1(4);
+  test.bar2("Test2");
+  test.print();
+  test.load(config);
+	test.print();
 
+  config.clear();
+  Bar bar;
+  bar.save(config);
+  std::cout << config;
+  
+
+  /*
 
 	// Change some values
 	config.put(test.bar1_path(),"2.178");
@@ -131,7 +163,7 @@ int main(int ac, char* av[])
   config.load("json.cfg");
   cout << config;
   config.save("json_test.cfg");
-
+*/
 	return 0;
 }
 
