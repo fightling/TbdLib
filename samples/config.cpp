@@ -22,27 +22,102 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***********************************************************************/
 
+#include <array>
 #include <vector>
 #include <iostream>
 
 #include "tbd/config.h" 
 #include "tbd/configurable.h" 
 
+#include <boost/algorithm/string/split.hpp>
+
 using namespace std;
 
-#define NUM_ELEMENTS 10
+/// An example MyCustomType which hold for parameters
+struct MyCustomType
+{
+  template<typename T>
+  MyCustomType(const T& s)
+  {
+    parse(s);
+  }
+
+  template<typename T>
+  void parse(const T& s)
+  {
+    std::stringstream ss(s);
+    ss >> r >> g >> b >> a;
+  }
+
+  friend bool operator==(const MyCustomType& lhs, const MyCustomType& rhs)
+  {
+    return 
+      lhs.r == rhs.r &&
+      lhs.g == rhs.g &&
+      lhs.b == rhs.b &&
+      lhs.a == rhs.a;
+  }
+
+  int r,g,b,a;
+};
+
+
+// Custom translator for MyCustomType (only supports std::string)
+struct MyCustomTypeTranslator
+{
+    typedef std::string internal_type;
+    typedef MyCustomType external_type;
+
+    // Converts a string to MyCustomType
+    boost::optional<external_type> get_value(const internal_type& str)
+    {
+        if (!str.empty())
+        {
+            return boost::optional<external_type>(external_type(str));
+        }
+        else
+            return boost::optional<external_type>(boost::none);
+    }
+
+    // Converts a MyCustomType to string
+    boost::optional<internal_type> put_value(const external_type& b)
+    {
+      std::stringstream ss;
+      ss << b.r << " " << b.g << " " << b.b << " " << b.a;
+      return boost::optional<internal_type>(ss.str());
+    }
+};
+
+/*  Specialize translator_between so that it uses our custom translator for
+    bool value types. Specialization must be in boost::property_tree
+    namespace. */
+namespace boost {
+namespace property_tree {
+
+template<typename Ch, typename Traits, typename Alloc> 
+struct translator_between<std::basic_string< Ch, Traits, Alloc >, MyCustomType>
+{
+    typedef MyCustomTypeTranslator type;
+};
+
+} // namespace property_tree
+} // namespace boost
+
 
 namespace 
 {
   TBD_CONFIG_PROPERTY(float,Bar1,bar1,0.4)
-  TBD_CONFIG_PROPERTY(std::string,Bar2,bar2,"Test")
+  TBD_CONFIG_PROPERTY(std::string,Bar2,bar2,"DefaultValue")
   TBD_CONFIG_PROPERTY(int,Bar3,bar3,10)
   TBD_CONFIG_PROPERTY_ARRAY(std::vector<int>,Bar4,bar4,1,2,3,4)
+
+  TBD_CONFIG_PROPERTY(MyCustomType,Custom,custom,"255 200 100 255");
 
   TBD_PROPERTYSET(PropertySet1,Bar1,Bar2)
   TBD_PROPERTYSET(PropertySet2,Bar3,Bar4)
 }
 
+/// An example type which has two properties
 class Foo : 
   public tbd::Configurable<Bar1,Bar2>
 {
@@ -58,15 +133,62 @@ public:
 
     print_++;
   }
+  static int print_;
 };
 
 
+/// An example type which has three properties and one property set
 class Bar :
-  public tbd::Configurable<PropertySet1,Bar3,Bar4>
+  public tbd::Configurable<PropertySet1,Bar3,Bar4,Custom>
 {
 public:
-  Bar() : tbd::Configurable<PropertySet1,Bar3,Bar4>("Bar") {}
+  Bar() : tbd::Configurable<PropertySet1,Bar3,Bar4,Custom>("Bar") {}
 };
+
+
+/// This MyFunctor defines operations which will be executed for each property
+struct MyFunctor
+{
+  template<typename NAME, typename T>
+  void operator()(NAME _name, NAME _varName, T _value, T _def)
+  {
+    std::cout << _name << "::" << _varName 
+              << ": Undefined Type" << std::endl;
+  }
+
+  template<typename NAME>
+  void operator()(NAME _name, NAME _varName, float _value, float _def)
+  {
+    std::cout << _name << "::" << _varName  
+              << "(has type 'float') = " << _value 
+              << " " << _def << std::endl;
+  }
+
+  template<typename NAME>
+  void operator()(NAME _name, NAME _varName, int _value, int _def)
+  {
+    std::cout << _name << "::" << _varName 
+              << "(has type 'int') = " 
+              << _value << " " << _def << std::endl;
+  }
+
+  template<typename NAME>
+  void operator()(NAME _name, NAME _varName, std::string _value, std::string _def)
+  {
+    std::cout << _name << "::" << _varName 
+              << "(has type 'std::string') = " 
+              << _value << " " << _def << std::endl;
+  }
+
+  template<typename NAME>
+  void operator()(NAME _name, NAME _varName, MyCustomType _value, MyCustomType _def)
+  {
+    std::cout << _name << "::" << _varName 
+              << "(has type 'MyCustomType') = " 
+              << _value.r << " " << _def.r << std::endl;
+  }
+};
+
 
 
 int Foo::print_ = 0;
@@ -94,8 +216,12 @@ int main(int ac, char* av[])
   Bar bar;
   bar.save(config);
   std::cout << config;
-  
 
+  MyFunctor _myFunctor;
+  test.apply(_myFunctor);
+
+  bar.apply(_myFunctor);
+  
   /*
 
 	// Change some values

@@ -31,17 +31,18 @@ namespace tbd
 /**@brief Macro for defining a property
    @detail Should be declared in anonymous namespace 
 */
-#define TBD_CONFIG_PROPERTY(type,property_name,var_name,def)\
+#define TBD_CONFIG_PROPERTY(var_type,property_name,var_name,var_def)\
   class property_name\
   {\
   public:\
-    property_name() : var_name##_(def) {} \
-    TBD_PROPERTY_REF(type,var_name)\
+    property_name() : var_name##_(var_def) {} \
+    TBD_PROPERTY_REF(var_type,var_name)\
   protected:\
+    typedef var_type type;\
     template<typename CONFIG_PATH, typename CONFIG>\
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)\
     {\
-      type _##var_name = _config.get(_path / CONFIG_PATH(#var_name),def);\
+      var_type _##var_name = _config.get(_path / CONFIG_PATH(name()),var_def);\
       if (_##var_name == var_name##_)\
       {\
         return false;\
@@ -54,24 +55,37 @@ namespace tbd
     template<typename CONFIG_PATH, typename CONFIG>\
     void save(const CONFIG_PATH& _path, CONFIG& _config) const\
     {\
-      _config.put(_path / CONFIG_PATH(#var_name),var_name());\
+      _config.put(_path / CONFIG_PATH(name()),var_name());\
+    }\
+    \
+    char const* name() const { return #property_name; }\
+    char const* varname() const { return #var_name; }\
+    const var_type& value() const { return var_name(); }\
+    var_type& value() { return var_name(); }\
+    var_type def() const { return var_def; }\
+    template<typename FUNCTOR>\
+    void apply(FUNCTOR f)\
+    {\
+      f(name(),varname(),value(),def());\
     }\
   };
 
 /**@brief Macro for defining an array property
    @detail Should be declared in anonymous namespace 
 */
-#define TBD_CONFIG_PROPERTY_ARRAY(type,property_name,var_name,...)\
+#define TBD_CONFIG_PROPERTY_ARRAY(var_type,property_name,var_name,...)\
   class property_name\
   {\
   public:\
     property_name() : var_name##_({__VA_ARGS__}) {} \
-    TBD_PROPERTY_REF(type,var_name)\
+    TBD_PROPERTY_REF(var_type,var_name)\
   protected:\
+    typedef var_type type;\
+    \
     template<typename CONFIG_PATH, typename CONFIG>\
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)\
     {\
-      type _##var_name = _config.get_array(_path / CONFIG_PATH(#var_name),{__VA_ARGS__});\
+      var_type _##var_name = _config.get_array(_path / CONFIG_PATH(#var_name),{__VA_ARGS__});\
       if (_##var_name == var_name##_)\
       {\
         return false;\
@@ -85,6 +99,16 @@ namespace tbd
     void save(const CONFIG_PATH& _path, CONFIG& _config) const\
     {\
       _config.put_array(_path / CONFIG_PATH(#var_name),var_name());\
+    }\
+    const var_type& value() const { return var_name(); }\
+    var_type& value() { return var_name(); }\
+    char const* varname() const { return #var_name; }\
+    var_type def() const { return {__VA_ARGS__}; }\
+    char const* name() const { return #var_name; }\
+    template<typename FUNCTOR>\
+    void apply(FUNCTOR f)\
+    {\
+      f(name(),varname(),value(),def());\
     }\
   };
 
@@ -100,6 +124,13 @@ namespace tbd
   struct PropertySet<PROPERTY,PROPERTIES...> : PROPERTY, PropertySet<PROPERTIES...>
   {
   protected:
+    template<typename FUNCTOR>
+    void apply(FUNCTOR f)
+    {
+      PROPERTY::apply(f);
+      PropertySet<PROPERTIES...>::apply(f);
+    }
+
     /// Load the properties from a config, a certain config path given
     template<typename CONFIG_PATH, typename CONFIG>
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)
@@ -109,6 +140,7 @@ namespace tbd
       _updated |= PropertySet<PROPERTIES...>::load(_path,_config);
       return _updated;
     }
+
 
     /// Saves the properties to a config
     template<typename CONFIG_PATH, typename CONFIG>
@@ -121,8 +153,16 @@ namespace tbd
 
   template<typename PROPERTY>
   struct PropertySet<PROPERTY> : PROPERTY
-  { 
+  {
   protected:
+
+    template<typename FUNCTOR>
+    void apply(FUNCTOR f)
+    {
+      f(PROPERTY::name(),PROPERTY::varname(),PROPERTY::value(),PROPERTY::def());
+    }
+
+
     /// Load the properties from a config, a certain config path given
     template<typename CONFIG_PATH, typename CONFIG>
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)
@@ -154,6 +194,12 @@ namespace tbd
     {
       typedef typename CONFIG::path_type path_type; 
       propertyset_type::load(path_type(cfgPath()),_config);
+    }
+
+    template<typename FUNCTOR>
+    void apply(FUNCTOR f)
+    {
+      propertyset_type::apply(f);
     }
 
     /// Saves the properties to a config

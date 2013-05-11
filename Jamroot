@@ -1,6 +1,6 @@
 # use clang cause gcc is eighties
 using clang 
-  : 3.1 # version
+  : 3.2 # version
   : # compiler
   : # options
   <cxxflags>-std=c++11  # use new C++11 standard
@@ -30,3 +30,6 @@ exe declare_property_sample :
 
 exe config_sample :
 	samples/config.cpp ;
+
+exe parallel_for_sample : 
+  samples/parallel_for.cpp ;
