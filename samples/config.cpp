@@ -221,7 +221,11 @@ int main(int ac, char* av[])
   test.apply(_myFunctor);
 
   bar.apply(_myFunctor);
-  
+ 
+
+  /// Testing variadic constructor template for property set
+  tbd::PropertySet<Bar1,Bar2,PropertySet2> test2(0.5,"Test2",PropertySet2(3,Bar4({1,2,3})));
+
   /*
 
 	// Change some values

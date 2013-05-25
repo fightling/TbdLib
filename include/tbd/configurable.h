@@ -36,6 +36,7 @@ namespace tbd
   {\
   public:\
     property_name() : var_name##_(var_def) {} \
+    property_name(const var_type& _##var_name) : var_name##_(_##var_name) {}\
     TBD_PROPERTY_REF(var_type,var_name)\
   protected:\
     typedef var_type type;\
@@ -77,6 +78,7 @@ namespace tbd
   class property_name\
   {\
   public:\
+    property_name(const var_type& _##var_name) : var_name##_(_##var_name) {}\
     property_name() : var_name##_({__VA_ARGS__}) {} \
     TBD_PROPERTY_REF(var_type,var_name)\
   protected:\
@@ -117,12 +119,23 @@ namespace tbd
   typedef tbd::PropertySet<__VA_ARGS__> name;
 
 
-  /// A properties accepts a number of distincs properties a template parameter
-  template<typename ...PROPERTIES> struct PropertySet : PROPERTIES... {};
+  /// A propertie set accepts a number of distinct properties as template parameters
+  template<typename ...PROPERTIES> struct PropertySet : PROPERTIES... 
+  {
+    PropertySet(PROPERTIES&&..._properties) : 
+      PROPERTIES(_properties)... {}
+  };
   
   template<typename PROPERTY, typename...PROPERTIES>
   struct PropertySet<PROPERTY,PROPERTIES...> : PROPERTY, PropertySet<PROPERTIES...>
   {
+    PropertySet() {}
+
+    template<typename ARG, typename...ARGS>
+    PropertySet(ARG&& _arg, ARGS&&..._args) : 
+      PROPERTY(_arg), 
+      PropertySet<PROPERTIES...>(_args...) {}
+
   protected:
     template<typename FUNCTOR>
     void apply(FUNCTOR f)
@@ -141,7 +154,6 @@ namespace tbd
       return _updated;
     }
 
-
     /// Saves the properties to a config
     template<typename CONFIG_PATH, typename CONFIG>
     void save(const CONFIG_PATH& _path, CONFIG& _config) const
@@ -155,6 +167,10 @@ namespace tbd
   struct PropertySet<PROPERTY> : PROPERTY
   {
   protected:
+    PropertySet() {}
+
+    template<typename ARG>
+    PropertySet(ARG _arg) : PROPERTY(_arg) {}
 
     template<typename FUNCTOR>
     void apply(FUNCTOR f)
@@ -179,14 +195,20 @@ namespace tbd
   };
 
   /// A configurable holds a number of properties and config path
-  template<typename ...PROPERTIES> struct Configurable : PROPERTIES... {};
+  //template<typename ...PROPERTIES> struct Configurable : PROPERTIES... {};
 
-  template<typename PROPERTY, typename...PROPERTIES>
-  struct Configurable<PROPERTY,PROPERTIES...> : PropertySet<PROPERTY,PROPERTIES...>
+  template<typename...PROPERTIES>
+  struct Configurable : PropertySet<PROPERTIES...>
   {
-    typedef PropertySet<PROPERTY,PROPERTIES...> propertyset_type;
+    typedef PropertySet<PROPERTIES...> propertyset_type;
 
     Configurable(const std::string& _cfgPath) : cfgPath_(_cfgPath) {}
+    
+    template<typename...ARGS>
+    Configurable(const std::string& _cfgPath, 
+                 ARGS&&..._args) : 
+      cfgPath_(_cfgPath),
+      ARGS(_args)... {}
 
     /// Load the properties from a config
     template<typename CONFIG>

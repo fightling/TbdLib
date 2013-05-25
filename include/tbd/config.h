@@ -52,9 +52,9 @@ namespace tbd
       return _result;
     }
 
-    void load(const std::string& _filename)
+    void load(const std::string _filename)
     {
-      boost::property_tree::json_parser::read_json(_filename,*static_cast<boost::property_tree::ptree*>(this));
+      boost::property_tree::json_parser::read_json(_filename,static_cast<boost::property_tree::ptree&>(*this));
     }
 
     void save(const std::string& _filename) const
