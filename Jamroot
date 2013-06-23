@@ -7,10 +7,11 @@ using clang
   <cxxflags>-ferror-limit=1 # stop at first error
   <cxxflags>-fcolor-diagnostics # color my life
   <cxxflags>-fdiagnostics-show-template-tree # make template diagnostics easier
+  <cxxflags>-O3
   ;
 
 # path where we get our libraries from
-use-project /boost : ../boost_1_52_0 ;
+use-project /boost : ../../boost_1_52_0 ;
 
 lib RT : : <name>rt <search>/lib ;
 
@@ -38,3 +39,10 @@ exe config_sample :
 
 exe parallel_for_sample : 
   samples/parallel_for.cpp ;
+
+exe propertyset_sample : 
+  samples/propertyset.cpp ;
+
+exe classregister_sample : 
+  samples/classregister.cpp ;
+

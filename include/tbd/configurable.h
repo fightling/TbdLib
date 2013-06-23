@@ -24,10 +24,28 @@
 
 #pragma once
 
-#include "tbd/config.h" 
+//#include "tbd/config.h" 
+#include "property.h"
+#include <boost/lexical_cast.hpp>
 
 namespace tbd  
 {
+  namespace detail
+  {
+    template<typename PROPERTY_TOKEN> 
+    std::pair<std::string,std::string> splitToken(const PROPERTY_TOKEN& _token)
+    {
+      auto _pos = std::string(_token).find(':');
+      std::pair<std::string,std::string> _result;
+      if (_pos == std::string::npos) return _result;
+
+      std::string _str(_token);
+      _result.first = _str.substr(0,_pos);
+      _result.second = _str.substr(_pos+1,_str.length() - _pos);
+      return _result;
+    }
+  }
+
 /**@brief Macro for defining a property
    @detail Should be declared in anonymous namespace 
 */
@@ -59,6 +77,32 @@ namespace tbd
       _config.put(_path / CONFIG_PATH(name()),var_name());\
     }\
     \
+    template<typename PROPERTY_TOKEN>\
+    void put(const PROPERTY_TOKEN& _token)\
+    {\
+      auto&& _tokens = tbd::detail::splitToken(_token);\
+      if (_tokens.first.empty() || _tokens.second.empty()) return;\
+      if (_tokens.first == std::string(name()))\
+      {\
+        var_name(boost::lexical_cast<type>(_tokens.second));\
+      }\
+    }\
+    template<typename PROPERTY_TOKEN>\
+    void put(const std::vector<PROPERTY_TOKEN>& _tokens)\
+    {\
+      for (auto& _token : _tokens)\
+      {\
+        put(_token);\
+      }\
+    }\
+    template<typename PROPERTY_TOKEN, typename VALUE>\
+    bool get(const PROPERTY_TOKEN& _token, VALUE& _value) const\
+    {\
+      if (std::string(_token) != std::string(name())) return false;\
+      _value = boost::lexical_cast<VALUE>(var_name());\
+      return true;\
+    }\
+    \
     char const* name() const { return #property_name; }\
     char const* varname() const { return #var_name; }\
     const var_type& value() const { return var_name(); }\
@@ -66,6 +110,11 @@ namespace tbd
     var_type def() const { return var_def; }\
     template<typename FUNCTOR>\
     void apply(FUNCTOR f)\
+    {\
+      f(name(),varname(),value(),def());\
+    }\
+    template<typename FUNCTOR>\
+    void apply(FUNCTOR f) const\
     {\
       f(name(),varname(),value(),def());\
     }\
@@ -112,6 +161,11 @@ namespace tbd
     {\
       f(name(),varname(),value(),def());\
     }\
+    template<typename FUNCTOR>\
+    void apply(FUNCTOR f) const\
+    {\
+      f(name(),varname(),value(),def());\
+    }\
   };
 
 /// Macro for defining a property set
@@ -124,19 +178,76 @@ namespace tbd
   {
     PropertySet(PROPERTIES&&..._properties) : 
       PROPERTIES(_properties)... {}
+
+    template<typename FUNCTOR>
+    void apply(FUNCTOR f) {}
+
+    template<typename FUNCTOR>
+    void apply(FUNCTOR f) const {}
+
+    template<typename PROPERTY_TOKENS>
+    void put(const PROPERTY_TOKENS& _tokens) {}
+
+    template<typename PROPERTY_TOKEN, typename VALUE>
+    bool get(const PROPERTY_TOKEN& _token, VALUE& _value) const {}
   };
   
   template<typename PROPERTY, typename...PROPERTIES>
   struct PropertySet<PROPERTY,PROPERTIES...> : PROPERTY, PropertySet<PROPERTIES...>
   {
+  private:
+    typedef PropertySet<PROPERTIES...> propertyset_type;
+    typedef PROPERTY property_type;
+
+  public:
     PropertySet() {}
+
+    template<typename PROPERTY_TOKEN>
+    PropertySet(const std::initializer_list<PROPERTY_TOKEN>& _tokens) 
+    {
+      put(_tokens);
+    }
+
+    template<typename PROPERTY_TOKEN>
+    PropertySet(const std::vector<PROPERTY_TOKEN>& _tokens) 
+    {
+      put(_tokens);
+    }
+
 
     template<typename ARG, typename...ARGS>
     PropertySet(ARG&& _arg, ARGS&&..._args) : 
       PROPERTY(_arg), 
       PropertySet<PROPERTIES...>(_args...) {}
 
-  protected:
+    template<typename PROPERTY_TOKEN>
+    void put(const PROPERTY_TOKEN& _token)
+    {
+      property_type::put(_token);
+      propertyset_type::put(_token);
+    }
+
+    template<typename PROPERTY_TOKEN>
+    void put(const std::vector<PROPERTY_TOKEN>& _tokens)
+    {
+      property_type::put(_tokens);
+      propertyset_type::put(_tokens);
+    }
+
+    template<typename PROPERTY_TOKEN, typename VALUE>
+    bool get(const PROPERTY_TOKEN& _token, VALUE& _value) const
+    {
+      return property_type::get(_token,_value) ? true : 
+        propertyset_type::get(_token,_value);
+    }
+
+    template<typename FUNCTOR>
+    void apply(FUNCTOR f) const
+    {
+      PROPERTY::apply(f);
+      PropertySet<PROPERTIES...>::apply(f);
+    }
+
     template<typename FUNCTOR>
     void apply(FUNCTOR f)
     {
@@ -166,18 +277,49 @@ namespace tbd
   template<typename PROPERTY>
   struct PropertySet<PROPERTY> : PROPERTY
   {
-  protected:
+  private:
+    typedef PROPERTY property_type;
+  public:
     PropertySet() {}
 
     template<typename ARG>
-    PropertySet(ARG _arg) : PROPERTY(_arg) {}
+    PropertySet(ARG&& _arg) : PROPERTY(_arg) {}
+
+    template<typename PROPERTY_TOKEN>
+    PropertySet(const std::initializer_list<PROPERTY_TOKEN>& _tokens) 
+    {
+      put(_tokens);
+    }
+
+    template<typename PROPERTY_TOKEN>
+    PropertySet(const std::vector<PROPERTY_TOKEN>& _tokens) 
+    {
+      put(_tokens);
+    }
+
+    template<typename PROPERTY_TOKEN>
+    void put(const std::vector<PROPERTY_TOKEN>& _tokens)
+    {
+      property_type::put(_tokens);
+    }
+
+    template<typename PROPERTY_TOKEN, typename VALUE>
+    bool get(const PROPERTY_TOKEN& _token, VALUE& _value) const
+    {
+      return property_type::get(_token,_value);
+    }
+
+    template<typename FUNCTOR>
+    void apply(FUNCTOR f) const
+    {
+      f(PROPERTY::name(),PROPERTY::varname(),PROPERTY::value(),PROPERTY::def());
+    }
 
     template<typename FUNCTOR>
     void apply(FUNCTOR f)
     {
       f(PROPERTY::name(),PROPERTY::varname(),PROPERTY::value(),PROPERTY::def());
     }
-
 
     /// Load the properties from a config, a certain config path given
     template<typename CONFIG_PATH, typename CONFIG>
@@ -192,46 +334,5 @@ namespace tbd
     {
       PROPERTY::save(_path,_config);
     }
-  };
-
-  /// A configurable holds a number of properties and config path
-  //template<typename ...PROPERTIES> struct Configurable : PROPERTIES... {};
-
-  template<typename...PROPERTIES>
-  struct Configurable : PropertySet<PROPERTIES...>
-  {
-    typedef PropertySet<PROPERTIES...> propertyset_type;
-
-    Configurable(const std::string& _cfgPath) : cfgPath_(_cfgPath) {}
-    
-    template<typename...ARGS>
-    Configurable(const std::string& _cfgPath, 
-                 ARGS&&..._args) : 
-      cfgPath_(_cfgPath),
-      ARGS(_args)... {}
-
-    /// Load the properties from a config
-    template<typename CONFIG>
-    void load(const CONFIG& _config)
-    {
-      typedef typename CONFIG::path_type path_type; 
-      propertyset_type::load(path_type(cfgPath()),_config);
-    }
-
-    template<typename FUNCTOR>
-    void apply(FUNCTOR f)
-    {
-      propertyset_type::apply(f);
-    }
-
-    /// Saves the properties to a config
-    template<typename CONFIG>
-    void save(CONFIG& _config) const
-    {
-      typedef typename CONFIG::path_type path_type; 
-      propertyset_type::save(path_type(cfgPath()),_config);
-    }
-
-    TBD_PROPERTY_REF(std::string,cfgPath)
   };
 }
