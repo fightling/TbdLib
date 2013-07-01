@@ -40,8 +40,8 @@ exe config_sample :
 exe parallel_for_sample : 
   samples/parallel_for.cpp ;
 
-exe propertyset_sample : 
-  samples/propertyset.cpp ;
+exe parameterset_sample : 
+  samples/parameterset.cpp ;
 
 exe classregister_sample : 
   samples/classregister.cpp ;

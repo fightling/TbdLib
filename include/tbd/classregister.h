@@ -57,6 +57,7 @@ namespace tbd
 
     static ptr_type create(const key_type& _key, const ARGS&..._args)
     {
+      if (privClasses().count(_key) == 0) return ptr_type(nullptr);
       return privClasses()[_key](_args...);
     }
 
@@ -124,6 +125,10 @@ namespace tbd
   = ClassRegistrar<R,T,ARGS...>::instance();
   template<typename R, typename T, typename...ARGS>
   bool ClassRegistrar<R,T,ARGS...>::registered_ = false;
+/*
+  template<typename KEY, typename INTERFACE, typename...ARGS>
+  ClassRegistrar<R,T,ARGS...>* ClassRegistrar<R,T,ARGS...>::instance_
+  = ClassRegistry<KEY,INTERFACE,ARGS...>::instance();*/
 }
 
 #endif /* H_TBD_CLASSREGISTER_H */
