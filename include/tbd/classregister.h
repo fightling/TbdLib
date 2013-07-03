@@ -47,16 +47,21 @@ namespace tbd
     template<typename T>
     using registrar_type = ClassRegistrar<type,T,ARGS...>;
 
+    static bool exists(const key_type& _key)
+    {
+      return privClasses().count(_key) > 0;
+    }
+
     template<typename T>
       static void reg(const key_type& _key)
     {
-      if (privClasses().count(_key) > 0) return;
-
+      if (exists(_key) > 0) return;
       privClasses()[_key] = registrar_type<T>::create;
     }
 
     static ptr_type create(const key_type& _key, const ARGS&..._args)
     {
+      if (!exists(_key)) return ptr_type(nullptr);
       return privClasses()[_key](_args...);
     }
 
@@ -124,6 +129,10 @@ namespace tbd
   = ClassRegistrar<R,T,ARGS...>::instance();
   template<typename R, typename T, typename...ARGS>
   bool ClassRegistrar<R,T,ARGS...>::registered_ = false;
+/*
+  template<typename KEY, typename INTERFACE, typename...ARGS>
+  ClassRegistrar<R,T,ARGS...>* ClassRegistrar<R,T,ARGS...>::instance_
+  = ClassRegistry<KEY,INTERFACE,ARGS...>::instance();*/
 }
 
 #endif /* H_TBD_CLASSREGISTER_H */
