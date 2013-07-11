@@ -24,38 +24,39 @@
 
 #pragma once
 
+#include <iostream>
+#include <string>
+#include <utility>
+#include <sstream>
+#include <vector>
 #include "property.h"
-#include <boost/lexical_cast.hpp>
+#include "parse_utils.h"
 
 namespace tbd  
 {
-  typedef std::string ParameterToken;
-  
-  namespace detail
-  {
-    static std::pair<ParameterToken,ParameterToken> splitToken(const ParameterToken& _token, char _separator = '=')
-    {
-      auto _pos = std::string(_token).find(_separator);
-      std::pair<std::string,std::string> _result;
-      if (_pos == std::string::npos) return _result;
-
-      std::string _str(_token);
-      _result.first = _str.substr(0,_pos);
-      _result.second = _str.substr(_pos+1,_str.length() - _pos);
-      return _result;
-    }
-  }
-
+  /// Basic ParameterInterface (does not store any data)
   struct ParameterInterface 
   {
     virtual ~ParameterInterface() {}
 
-    virtual char const* name() const = 0; 
-    virtual char const* varname() const = 0;
-    virtual std::string token() const = 0;
+    /// Name of the parameter
+    virtual char const* name() const = 0;
+
+    /// Returns parameter as token of the form name=value
+    std::string token() const
+    {
+      std::stringstream _ss;
+      _ss << std::string(name()) << '=' << valueAsStr();
+      return _ss.str();
+    }
+
+    /// Value needs to be convertable into a string
     virtual std::string valueAsStr() const = 0;
+
+    /// Default value needs to be convertable into a string
     virtual std::string defaultAsStr() const = 0;
   };
+
 
 
   template<typename T>
@@ -65,13 +66,9 @@ namespace tbd
     TypedParameterInterface() {}
     TypedParameterInterface(const var_type& _value) : value_(_value) {}
     
-    std::string token() const
-    {
-      std::stringstream _ss;
-      _ss << std::string(varname()) << '=' << valueAsStr();
-      return _ss.str();
-    }
-
+    /**@brief Return value as string 
+     * @detail Uses std::stringstream
+     **/
     std::string valueAsStr() const
     {
       std::stringstream _ss;
@@ -79,8 +76,10 @@ namespace tbd
       return _ss.str();
     }
     
+    /// A typed parameter needs to return a default value
     virtual var_type def() const = 0;
 
+    /// Returns defaults value as string
     std::string defaultAsStr() const
     {
       std::stringstream _ss;
@@ -88,6 +87,11 @@ namespace tbd
       return _ss.str();
     }
 
+    /**@brief Load parameter from a config
+      *@param _path Config path (e.g. a std::string of the form my.path.to.param)
+      *@param _config Config in which parameter (e.g. boost property tree)
+      *@returns Returns true if parameter changed
+      */
     template<typename CONFIG_PATH, typename CONFIG>
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)
     {
@@ -101,22 +105,30 @@ namespace tbd
       }
       return true;
     }
+    
+    /**@brief Save parameter into a config 
+      *@param _path Config path (e.g. a std::string of the form my.path.to.param)
+      *@param _config Config in which parameter (e.g. boost property tree)
+     **/
     template<typename CONFIG_PATH, typename CONFIG>
     void save(const CONFIG_PATH& _path, CONFIG& _config) const
     {
       _config.put(_path / CONFIG_PATH(name()),value_);
     }
-      
+     
+    /// Changes value by a token of the form name=value
     void put(const ParameterToken& _token)
     {\
-      auto&& _tokens = tbd::detail::splitToken(_token);
+      auto&& _tokens = tbd::splitToken(_token);
       if (_tokens.first.empty() || _tokens.second.empty()) return;
-      if (_tokens.first == std::string(varname()))
+      if (_tokens.first == std::string(name()))
       {
-        value(boost::lexical_cast<var_type>(_tokens.second));
+        std::stringstream ss(_tokens.second);
+        ss >> value();
       }
     }
 
+    /// Changes value by a token of the form name=value
     void put(const std::vector<ParameterToken>& _tokens)
     {
       for (auto& _token : _tokens)
@@ -125,6 +137,7 @@ namespace tbd
       }
     }
 
+    /// Retrieve value from a token_list
     void put(std::initializer_list<ParameterToken>&& _tokens)
     {
       for (auto& _token : _tokens)
@@ -133,20 +146,29 @@ namespace tbd
       }
     }
 
-    template<typename VALUE>\
+    /// Retrieve value from a token
+    template<typename VALUE>
     bool get(const ParameterToken& _token, VALUE& _value) const
     {
-      if (std::string(_token) != std::string(varname())) return false;
-      _value = boost::lexical_cast<VALUE>(value());
+      auto&& _splitToken = splitToken(_token);
+      if (_splitToken.first != std::string(name())) return false;
+      std::stringstream ss(_splitToken.second);
+      ss >> _value;
       return true;
     }
     
+    /**@brief  Apply as functor onto this parameter (mutable version)
+     * @detail Functor accepts a ParameterInterface as argument
+     */
     template<typename FUNCTOR>
     void apply(FUNCTOR f)
     {
       f(*this); 
     }
 
+    /**@brief  Apply as functor onto this parameter (const version)
+     * @detail Functor accepts a ParameterInterface as argument
+     */
     template<typename FUNCTOR>
     void apply(FUNCTOR f) const
     {
@@ -168,69 +190,39 @@ namespace tbd
     parameter_name() : inherited_type(var_def) {} \
     parameter_name(const var_type& _value) : \
       inherited_type(_value) {}\
-    char const* name() const { return #parameter_name; }\
-    char const* varname() const { return #var_name; }\
-    var_type def() const { return var_def; }\
-    var_type& var_name() { return value(); }\
-    const var_type& var_name() const { return value(); }\
+    inline char const* name() const { return #var_name; }\
+    inline var_type def() const { return var_def; }\
+    inline var_type& var_name() { return value(); }\
+    inline const var_type& var_name() const { return value(); }\
   };
 
 /**@brief Macro for defining an array parameter
    @detail Should be declared in anonymous namespace 
 */
-#define TBD_PARAMETER_ARRAY(var_type,parameter_name,var_name,...)\
-  class parameter_name\
+#define TBD_ARRAY_PARAMETER(var_type,parameter_name,var_name,...)\
+  struct parameter_name : tbd::TypedParameterInterface<var_type>\
   {\
-  public:\
-    parameter_name(const var_type& _##var_name) : var_name##_(_##var_name) {}\
-    parameter_name() : var_name##_({__VA_ARGS__}) {} \
-    TBD_PARAMETER_REF(var_type,var_name)\
-  protected:\
     typedef var_type type;\
-    \
-    template<typename CONFIG_PATH, typename CONFIG>\
-    bool load(const CONFIG_PATH& _path, const CONFIG& _config)\
-    {\
-      var_type _##var_name = _config.get_array(_path / CONFIG_PATH(#var_name),{__VA_ARGS__});\
-      if (_##var_name == var_name##_)\
-      {\
-        return false;\
-      } else\
-      {\
-        var_name##_ = _##var_name;\
-      }\
-      return true;\
-    }\
-    template<typename CONFIG_PATH, typename CONFIG>\
-    void save(const CONFIG_PATH& _path, CONFIG& _config) const\
-    {\
-      _config.put_array(_path / CONFIG_PATH(#var_name),var_name());\
-    }\
-    const var_type& value() const { return var_name(); }\
-    var_type& value() { return var_name(); }\
-    char const* varname() const { return #var_name; }\
-    var_type def() const { return {__VA_ARGS__}; }\
-    char const* name() const { return #var_name; }\
-    template<typename FUNCTOR>\
-    void apply(FUNCTOR f)\
-    {\
-      f(name(),varname(),value(),def());\
-    }\
-    template<typename FUNCTOR>\
-    void apply(FUNCTOR f) const\
-    {\
-      f(name(),varname(),value(),def());\
-    }\
+    typedef tbd::TypedParameterInterface<var_type> inherited_type;\
+    parameter_name() : inherited_type({__VA_ARGS__}) {} \
+    parameter_name(const var_type& _value) : \
+      inherited_type(_value) {}\
+    inline char const* name() const { return #var_name; }\
+    inline var_type def() const { return {__VA_ARGS__}; }\
+    inline var_type& var_name() { return value(); }\
+    inline const var_type& var_name() const { return value(); }\
   };
 
 /// Macro for defining a parameter set
 #define  TBD_PARAMETERSET(name,...)\
   typedef tbd::ParameterSet<__VA_ARGS__> name;
 
-
-  /// A propertie set accepts a number of distinct properties as template parameters
+  /// A parameter set accepts a number of distinct properties as template parameters
   template<typename ...PARAMETERS> struct ParameterSet : PARAMETERS... 
   {
+    template<typename TOKENS>
+    ParameterSet(const TOKENS& _tokens) {}
+
     ParameterSet(PARAMETERS&&..._properties) : 
       PARAMETERS(_properties)... {}
 
@@ -247,41 +239,35 @@ namespace tbd
     bool get(const PARAMETER_TOKEN& _token, VALUE& _value) const {}
   };
   
+  /**@brief A parameter set takes a number of parameters as templates parameter
+   * @detail A parameter must implement a parameter interface
+   */
   template<typename PARAMETER, typename...PARAMETERS>
   struct ParameterSet<PARAMETER,PARAMETERS...> : PARAMETER, ParameterSet<PARAMETERS...>
   {
   private:
     typedef ParameterSet<PARAMETERS...> parameterset_type;
     typedef PARAMETER parameter_type;
-
   public:
     ParameterSet() {}
 
-    ParameterSet(const ParameterToken& _token)
-    {
-      put(_token);
-    }
-
+    /// Constructs a parameter set from a initializer_list of tokens
     ParameterSet(std::initializer_list<ParameterToken>&& _tokens) 
     {
       put(_tokens);
     }
 
+    /// Constructs a parameter set from a list of tokens
     ParameterSet(const std::vector<ParameterToken>& _tokens) 
     {
       put(_tokens);
     }
 
+    /// Constructs a parameter by directly passing values to each parameter
     template<typename ARG, typename...ARGS>
     ParameterSet(ARG&& _arg, ARGS&&..._args) : 
-      PARAMETER(_arg), 
+      parameter_type(_arg), 
       ParameterSet<PARAMETERS...>(_args...) {}
-
-    void put(const ParameterToken& _token)
-    {
-      parameter_type::put(_token);
-      parameterset_type::put(_token);
-    }
 
     void put(const std::vector<ParameterToken>& _tokens)
     {
@@ -302,17 +288,23 @@ namespace tbd
         parameterset_type::get(_token,_value);
     }
 
+    /**@brief  Apply as functor onto this parameter (const version)
+     * @detail Functor accepts a ParameterInterface as argument
+     */
     template<typename FUNCTOR>
     void apply(FUNCTOR f) const
     {
-      PARAMETER::apply(f);
+      parameter_type::apply(f);
       ParameterSet<PARAMETERS...>::apply(f);
     }
 
+    /**@brief  Apply as functor onto this parameter (mutable version)
+     * @detail Functor accepts a ParameterInterface as argument
+     */
     template<typename FUNCTOR>
     void apply(FUNCTOR f)
     {
-      PARAMETER::apply(f);
+      parameter_type::apply(f);
       ParameterSet<PARAMETERS...>::apply(f);
     }
 
@@ -321,7 +313,7 @@ namespace tbd
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)
     {
       bool _updated = false;
-      _updated |= PARAMETER::load(_path,_config);
+      _updated |= parameter_type::load(_path,_config);
       _updated |= ParameterSet<PARAMETERS...>::load(_path,_config);
       return _updated;
     }
@@ -330,11 +322,12 @@ namespace tbd
     template<typename CONFIG_PATH, typename CONFIG>
     void save(const CONFIG_PATH& _path, CONFIG& _config) const
     {
-      PARAMETER::save(_path,_config);
+      parameter_type::save(_path,_config);
       ParameterSet<PARAMETERS...>::save(_path,_config);
     }
   };
 
+  /// Parameter set for a single paramater (specialized template)
   template<typename PARAMETER>
   struct ParameterSet<PARAMETER> : PARAMETER
   {
@@ -343,27 +336,20 @@ namespace tbd
   public:
     ParameterSet() {}
 
+    /// Constructs a parameter by directly passing values to each parameter
     template<typename ARG>
     ParameterSet(ARG&& _arg) : PARAMETER(_arg) {}
 
-    ParameterSet(const ParameterToken& _token)
-    {
-      put(_token);
-    }
-
+    /// Constructs a parameter set from a initializer_list of tokens
     ParameterSet(std::initializer_list<ParameterToken>&& _tokens) 
     {
       put(_tokens);
     }
 
+    /// Constructs a parameter set from a list of tokens
     ParameterSet(const std::vector<ParameterToken>& _tokens) 
     {
       put(_tokens);
-    }
-
-    void put(const ParameterToken& _token)
-    {
-      parameter_type::put(_token);
     }
 
     void put(const std::vector<ParameterToken>& _tokens)

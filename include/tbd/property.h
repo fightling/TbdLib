@@ -11,41 +11,41 @@ namespace tbd {
  */ 
 #define TBD_PROPERTY_MON(type,name,monitor) \
   private: type name##_; \
-  public:  void (name)(type const & _##name) { name##_=_##name; monitor(); } \
-           type (name)() const { return name##_; } \
+  public:  inline void (name)(type const & _##name) { name##_=_##name; monitor(); } \
+           inline type (name)() const { return name##_; } \
   private:
 
 #define TBD_PROPERTY_REF_MON(type,name,monitor) \
   private: type name##_; \
-  public:  void (name)(type const & _##name) { name##_=_##name; monitor(); } \
-           const type& (name)() const { return name##_; } \
-           type& (name)() { return name##_; } \
+  public:  inline void (name)(type const & _##name) { name##_=_##name; monitor(); } \
+           inline const type& (name)() const { return name##_; } \
+           inline type& (name)() { return name##_; } \
 	private:
 
 /// @}
 
 #define TBD_PROPERTY_MODIFY_FLAG() \
   protected:\
-            void update() { modify_ = false; }\
+            inline void update() { modify_ = false; }\
             bool modify_; \
   public:  template<class T> bool modify(const T& _old, const T& _new ) \
            { if (_old == _new) return false;\
              modify_ = true;\
              return true; \
            } \
-           bool modified() const { return modify_; } 
+           inline bool modified() const { return modify_; } 
 
 #define TBD_PROPERTY_MODIFY(type,name) \
   private: type name##_; \
-  public:  void (name)(type const & _##name) { if( modify(name##_,_##name) ) name##_=_##name; } \
-           type (name)() const { return name##_; } \
+  public:  inline void (name)(type const & _##name) { if( modify(name##_,_##name) ) name##_=_##name; } \
+           inline type (name)() const { return name##_; } \
   private:
 
 #define TBD_PROPERTY_REF_MODIFY(type,name) \
   private: type name##_; \
-  public:  void (name)(type const & _##name) { if( modify(name##_,_##name) ) name##_=_##name; } \
-           const type& (name)() const { return name##_; } \
-           type& (name)() { modify_ = true; return name##_; } \
+  public:  inline void (name)(type const & _##name) { if( modify(name##_,_##name) ) name##_=_##name; } \
+           inline const type& (name)() const { return name##_; } \
+           inline type& (name)() { modify_ = true; return name##_; } \
   private:
 
 /** @defgroup tomoPropertyBasic basic properties
@@ -55,12 +55,12 @@ namespace tbd {
 
 #define TBD_PROPERTY_RO(type,name) \
   private: type name##_; \
-  public:  type (name)() const { return name##_; } \
+  public:  inline type (name)() const { return name##_; } \
   private:
 
 #define TBD_PROPERTY_REF_RO(type,name) \
   private: type name##_; \
-  public:  const type& (name)() const { return name##_; } \
+  public:  inline const type& (name)() const { return name##_; } \
   private:
 
 #define TBD_PROPERTY(type,name) \

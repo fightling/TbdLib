@@ -46,3 +46,6 @@ exe parameterset_sample :
 exe classregister_sample : 
   samples/classregister.cpp ;
 
+exe parse_sample : 
+  samples/parse.cpp ;
+
