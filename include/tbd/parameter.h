@@ -29,11 +29,31 @@
 #include <utility>
 #include <sstream>
 #include <vector>
+#include <boost/optional.hpp>
 #include "property.h"
 #include "parse_utils.h"
+#include "seq_op.h"
 
 namespace tbd  
 {
+  struct TypeKeyValue
+  {
+    TypeKeyValue() {}
+    TypeKeyValue(
+        const ParameterToken& _type,
+        const ParameterToken& _name,
+        const ParameterToken& _value) :
+      type_(_type),
+      name_(_name),
+      value_(_value) {}
+
+    TBD_PROPERTY_REF(ParameterToken,type)
+    TBD_PROPERTY_REF(ParameterToken,name)
+    TBD_PROPERTY_REF(ParameterToken,value)
+  };
+
+  typedef std::vector<TypeKeyValue> TypeKeyValueList;
+
   /// Basic ParameterInterface (does not store any data)
   struct ParameterInterface 
   {
@@ -62,9 +82,9 @@ namespace tbd
   template<typename T>
   struct TypedParameterInterface : ParameterInterface
   {
-    typedef T var_type;
+    typedef T type;
     TypedParameterInterface() {}
-    TypedParameterInterface(const var_type& _value) : value_(_value) {}
+    TypedParameterInterface(const type& _value) : value_(_value) {}
     
     /**@brief Return value as string 
      * @detail Uses std::stringstream
@@ -77,7 +97,7 @@ namespace tbd
     }
     
     /// A typed parameter needs to return a default value
-    virtual var_type def() const = 0;
+    virtual type def() const = 0;
 
     /// Returns defaults value as string
     std::string defaultAsStr() const
@@ -95,17 +115,13 @@ namespace tbd
     template<typename CONFIG_PATH, typename CONFIG>
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)
     {
-      auto _value = _config.get(_path / CONFIG_PATH(name()),def());
-      if (_value == value_)
-      {
-        return false;
-      } else
-      {
-        value_ = _value;
-      }
+      boost::optional<type> _value = _config.template get_optional<type>(_path / CONFIG_PATH(name()));
+      if (!_value) return false;
+
+      value_ = _value.get();
       return true;
     }
-    
+
     /**@brief Save parameter into a config 
       *@param _path Config path (e.g. a std::string of the form my.path.to.param)
       *@param _config Config in which parameter (e.g. boost property tree)
@@ -175,7 +191,18 @@ namespace tbd
       f(*this); 
     }
 
-    TBD_PROPERTY_REF(var_type,value)
+    template<template<class> class TYPE_TO_STR>
+    TypeKeyValueList get() const
+    {
+      TypeKeyValueList _list;
+      _list.emplace_back( // A tuple of ...
+          /* type */ TYPE_TO_STR<type>()(),
+          /* name */ ParameterToken(name()),
+          /* value */ valueAsStr());
+      return _list;
+    }
+
+    TBD_PROPERTY_REF(type,value)
   };
 
 
@@ -213,12 +240,14 @@ namespace tbd
     inline const var_type& var_name() const { return value(); }\
   };
 
+
 /// Macro for defining a parameter set
 #define  TBD_PARAMETERSET(name,...)\
   typedef tbd::ParameterSet<__VA_ARGS__> name;
 
   /// A parameter set accepts a number of distinct properties as template parameters
-  template<typename ...PARAMETERS> struct ParameterSet : PARAMETERS... 
+  template<typename ...PARAMETERS> 
+  struct ParameterSet : PARAMETERS... 
   {
     template<typename TOKENS>
     ParameterSet(const TOKENS& _tokens) {}
@@ -237,7 +266,10 @@ namespace tbd
 
     template<typename PARAMETER_TOKEN, typename VALUE>
     bool get(const PARAMETER_TOKEN& _token, VALUE& _value) const {}
-  };
+
+    template<template<class> class TYPE_TO_STR>
+    TypeKeyValueList get() const {}
+  }; 
   
   /**@brief A parameter set takes a number of parameters as templates parameter
    * @detail A parameter must implement a parameter interface
@@ -306,6 +338,15 @@ namespace tbd
     {
       parameter_type::apply(f);
       ParameterSet<PARAMETERS...>::apply(f);
+    }
+
+    /// Retrieve a list of type_key_value triples from parameter set
+    template<template<class> class TYPE_TO_STR>
+    TypeKeyValueList get() const
+    {
+      using tbd::seq_op::operator+;
+      return parameter_type::template get<TYPE_TO_STR>() + 
+        ParameterSet<PARAMETERS...>::template get<TYPE_TO_STR>();
     }
 
     /// Load the properties from a config, a certain config path given
@@ -378,6 +419,12 @@ namespace tbd
     void apply(FUNCTOR f)
     {
       parameter_type::apply(f);
+    }
+    
+    template<template<class> class TYPE_TO_STR>
+    TypeKeyValueList get() const
+    {
+      return parameter_type::template get<TYPE_TO_STR>(); 
     }
 
     /// Load the properties from a config, a certain config path given
