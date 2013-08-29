@@ -72,12 +72,7 @@ namespace tbd
 
     /// Value needs to be convertable into a string
     virtual std::string valueAsStr() const = 0;
-
-    /// Default value needs to be convertable into a string
-    virtual std::string defaultAsStr() const = 0;
   };
-
-
 
   template<typename T>
   struct TypedParameterInterface : ParameterInterface
@@ -95,7 +90,7 @@ namespace tbd
       _ss << value();
       return _ss.str();
     }
-    
+  
     /// A typed parameter needs to return a default value
     virtual type def() const = 0;
 
@@ -268,7 +263,7 @@ namespace tbd
     bool get(const PARAMETER_TOKEN& _token, VALUE& _value) const {}
 
     template<template<class> class TYPE_TO_STR>
-    TypeKeyValueList get() const {}
+    TypeKeyValueList get() const { return TypeKeyValueList(); }
   }; 
   
   /**@brief A parameter set takes a number of parameters as templates parameter

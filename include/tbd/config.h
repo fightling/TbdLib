@@ -31,6 +31,12 @@ namespace tbd
 			if (!filename.empty()) load(filename);
 		}
 
+    void fromStr(const std::string& _str)
+    {
+      std::istringstream _iss(_str);
+      boost::property_tree::json_parser::read_json(_iss,static_cast<boost::property_tree::ptree&>(*this));
+    }
+
     template<typename CNTR>
     void put_array(const path_type& _path, const CNTR& _cntr)
     {

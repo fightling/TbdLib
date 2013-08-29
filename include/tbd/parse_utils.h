@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 
 namespace tbd
@@ -81,6 +82,59 @@ namespace tbd
           c = _level < _parseLevel ? ' ' : c;
           --_level;
         }
+      }
+      if (!_is.good()) break;
+     
+      if (_level >= _parseLevel)
+      _token += c;
+    }
+
+    _token = trim(_token);
+    if (!_token.empty())
+      _tokens.push_back(_token);
+  }
+  
+  template<typename ISTREAM>
+  void parse(
+    ISTREAM& _is,
+    std::map<std::string,std::string>& _tokens,
+    std::string _left = "[(",
+    std::string _right = ")]",
+    std::string _sep = ",",
+    int _parseLevel = 0)
+  {
+    std::string _token;
+    char c = '\0';
+    bool _quote = false;
+    int _level = 0;
+    while (_is.good())
+    {
+      _is.get(c);
+
+      if (isQuote(c)) _quote = !_quote;
+      if (!_quote)
+      {
+        if (_sep.find(c) != std::string::npos && _level == _parseLevel)
+        {
+          _token = trim(_token);
+          if (!_token.empty())
+          {
+            _tokens.insert(splitToken(_token));
+          }
+          _token.clear();
+          continue;
+        }
+
+        if (_left.find(c) != std::string::npos)
+        {
+          c = _level < _parseLevel ? ' ' : c;
+          ++_level;
+        }
+        if (_right.find(c) != std::string::npos)
+        {
+          c = _level < _parseLevel ? ' ' : c;
+          --_level;
+        }
 
 
       }
@@ -92,6 +146,7 @@ namespace tbd
 
     _token = trim(_token);
     if (!_token.empty())
-      _tokens.push_back(_token);
+      _tokens.insert(splitToken(_token));
+      //_tokens.push_back(_token);
   }
 }
