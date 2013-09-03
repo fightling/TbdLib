@@ -3,6 +3,7 @@
 //#undef BOOST_PP_VARIADICS
 #define BOOST_PP_VARIADICS 1
 
+#include <boost/lexical_cast.hpp>
 #include <boost/preprocessor/seq/for_each_i.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/variadic/size.hpp>
@@ -50,9 +51,7 @@ struct field_data<i, Self> : tbd::ParameterInterface \
     \
     std::string valueAsStr() const\
     { \
-      std::stringstream ss;\
-      ss << get();\
-      return ss.str();\
+      return boost::lexical_cast<std::string>(get());\
     }\
     \
     typename tbd::detail::make_const<Self, type>::type & get() \

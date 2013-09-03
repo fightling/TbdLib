@@ -158,8 +158,8 @@ namespace tbd
     template<typename CONFIG_PATH, typename CONFIG>
     void save(const CONFIG_PATH& _path, CONFIG& _config) const
     {
-      return head_type::save(_path,_config) || 
-             tail_type::save(_path,_config);
+      head_type::save(_path,_config); 
+      tail_type::save(_path,_config);
     }
   
     void tokenMap(tokenmap_type& _tokens) const

@@ -67,11 +67,34 @@ namespace tbd
     {
       boost::property_tree::json_parser::write_json(_filename,boost::property_tree::ptree(*this));
     }
+    
+    void print(std::ostream& _os) const
+    {
+      print(_os,0,*this);
+    }
 
     friend std::ostream& operator<<(std::ostream& _os, Config& _config)
     {
       _config.print(_os,0,_config);
       return _os;
+    }
+
+    Config& merge(const Config& _cfg) 
+    {
+      return merge(_cfg,"");
+    }
+
+    Config& merge(const Config& _cfg, path_type const& _path)
+    {
+      using boost::property_tree::ptree; 
+      traverse(ptree(_cfg),[&](
+            const ptree& _parent,
+            const path_type& _childPath,
+            const ptree& _child)
+      {
+        this->put(_path / _childPath, _child.data());
+      });
+      return *this; 
     }
 
   private:
@@ -86,6 +109,28 @@ namespace tbd
         _children.push_back(std::make_pair("",_child));
       }
       return _children;
+    }
+
+    template<typename T>
+    void traverse_recursive(
+        const boost::property_tree::ptree& _parent, 
+        const boost::property_tree::ptree::path_type& _childPath, 
+        const boost::property_tree::ptree& _child, T _method)
+    {
+      using boost::property_tree::ptree;
+  
+      _method(_parent, _childPath, _child);
+      for(auto it= _child.begin();it != _child.end(); ++it) 
+      {
+        auto _curPath = _childPath / ptree::path_type(it->first);
+        traverse_recursive(_parent, _curPath, it->second, _method);
+      }
+    }
+
+    template<typename T>
+    void traverse(const boost::property_tree::ptree &parent, T method)
+    {
+      traverse_recursive(parent, "", parent, method);
     }
 
     void print(std::ostream& _os, const int _depth, 
