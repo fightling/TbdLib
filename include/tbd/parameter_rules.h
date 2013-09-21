@@ -2,6 +2,7 @@
 
 #include <list>
 #include <string>
+#include <boost/lexical_cast.hpp>
 
 namespace tbd
 {
@@ -17,8 +18,27 @@ namespace tbd
         const tokens_type& _parameters = tokens_type()) : 
       name_(_name),
       value_(_value),
-      type_(_type)
+      type_(_type),
+      parameters_(_parameters)
     {
+    }
+    
+    template<typename VALUE>
+    ParameterRule(
+        const token_type& _name,
+        const VALUE& _value,
+        const token_type& _type,
+        const tokens_type& _parameters = tokens_type()) : 
+      name_(_name),
+      type_(_type),
+      parameters_(_parameters)
+    {
+      value_ = boost::lexical_cast<token_type>(_value);
+    }
+    
+    friend bool operator<(const ParameterRule& _lhs, const ParameterRule& _rhs)
+    {
+      return _lhs.name() < _rhs.name();
     }
 
     friend bool operator==(const ParameterRule& _lhs, const ParameterRule& _rhs)
