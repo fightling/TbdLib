@@ -233,7 +233,7 @@ void subobjectTest()
     std::cout << _t.first << "=" << _t.second << std::endl;
 
   Derived::typed_tokenmap_type _typedTokens;
-  c.typedTokenMap(_typedTokens);
+ // c.typedTokenMap(_typedTokens);
   for (auto& _t : _typedTokens) 
     std::cout << _t.second.second << " " << _t.first << " = " << _t.second.first << std::endl;
 
@@ -253,8 +253,8 @@ void subobjectTest()
 int main(int argc, char** argv)
 {
   personTest();
-  configurableTest();
-  subobjectTest();
+//  configurableTest();
+//  subobjectTest();
 
   return 0;
 }

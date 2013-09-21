@@ -37,15 +37,15 @@ exe declare_property_sample :
 exe config_sample :
 	samples/config.cpp ;
 
-exe parallel_for_sample : 
-  samples/parallel_for.cpp ;
-
 exe parameterset_sample : 
   samples/parameterset.cpp ;
 
-exe classregister_sample : 
-  samples/classregister.cpp ;
-
 exe parse_sample : 
   samples/parse.cpp ;
+
+exe toolchain : 
+  samples/ToolchainParser.cpp ;
+
+exe reflection_sample : 
+  samples/reflection.cpp ;
 

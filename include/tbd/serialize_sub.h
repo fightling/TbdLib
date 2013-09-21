@@ -13,8 +13,7 @@ namespace tbd
     typedef EventHandler<SUBOBJECT> eventhandler_type;
     typedef std::string token_type;
     typedef std::map<token_type,token_type> tokenmap_type;
-    /// Parameter name, value, type
-    typedef std::map<token_type,std::pair<token_type,token_type>> typed_tokenmap_type;
+    typedef ParameterRules parameterrules_type;
 
     explicit SubobjectSerializer(SUBOBJECT& _subobject) :
       subobject_(_subobject) {}
@@ -90,9 +89,9 @@ namespace tbd
     }
 
     template<template<class> class TYPE_TO_STR = TypeToStr>
-    void typedTokenMap(typed_tokenmap_type& _tokens) const
+      void parameterRules(parameterrules_type& _rules) const
     {
-      detail::visit_each(subobject_,detail::TypedTokenMapInserter<TYPE_TO_STR>(subobject_.typeId(),_tokens));
+      detail::visit_each(subobject_,detail::ParameterRuleInserter<TYPE_TO_STR>(subobject_.typeId(),_rules));
     }
 
   private:
@@ -112,8 +111,7 @@ namespace tbd
     typedef SubobjectSerializer<SUBOBJECTS...> tail_type;
     typedef std::string token_type;
     typedef std::map<token_type,token_type> tokenmap_type;
-    /// Parameter name, value, type
-    typedef std::map<token_type,std::pair<token_type,token_type>> typed_tokenmap_type;
+    typedef ParameterRules parameterrules_type;
 
     explicit SubobjectSerializer(SUBOBJECT& _subobject,
         SUBOBJECTS&..._subobjects) :
@@ -169,10 +167,10 @@ namespace tbd
     }
 
     template<template<class> class TYPE_TO_STR = TypeToStr>
-    void typedTokenMap(typed_tokenmap_type& _tokens) const
+    void parameterRules(parameterrules_type& _rules) const
     {
-      head_type::template typedTokenMap<TYPE_TO_STR>(_tokens);
-      tail_type::template typedTokenMap<TYPE_TO_STR>(_tokens);
+      head_type::template parameterRules<TYPE_TO_STR>(_rules);
+      tail_type::template parameterRules<TYPE_TO_STR>(_rules);
     }
   };
   
@@ -189,8 +187,8 @@ namespace tbd
       subobjects_type(_subobjects...) {}
 
     typedef std::string token_type;
-    typedef std::map<token_type,std::pair<token_type,token_type>> typed_tokenmap_type;
     typedef std::map<token_type,token_type> tokenmap_type;
+    typedef ParameterRules parameterrules_type;
 
     /**@brief Abstract method for printing into a std::ostream
       * @param[out] _os Output stream
@@ -246,10 +244,10 @@ namespace tbd
     }
 
     template<template<class> class TYPE_TO_STR = TypeToStr>
-    void typedTokenMap(typed_tokenmap_type& _tokens) const
+      void parameterRules(parameterrules_type& _rules) const 
     {
-      base_type::template typedTokenMap<TYPE_TO_STR>(_tokens);
-      subobjects_type::template typedTokenMap<TYPE_TO_STR>(_tokens);
+      base_type::template parameterRules<TYPE_TO_STR>(_rules);
+      subobjects_type::template parameterRules<TYPE_TO_STR>(_rules);
     }
   };
 }

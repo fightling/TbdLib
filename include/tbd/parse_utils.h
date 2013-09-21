@@ -2,9 +2,13 @@
 
 #include <map>
 #include <string>
+#include <boost/algorithm/string/trim.hpp>
 
 namespace tbd
 {
+
+
+
   template<typename CHAR>
   bool isQuote(const CHAR& _q)
   {
@@ -32,8 +36,14 @@ namespace tbd
     if (_pos == std::string::npos) return _result;
 
     std::string _str(_token);
-    _result.first = trim(_str.substr(0,_pos));
-    _result.second = trim(_str.substr(_pos+1,_str.length() - _pos));
+    _result.first = _str.substr(0,_pos);
+    _result.second = _str.substr(_pos+1,_str.length() - _pos);
+
+    boost::algorithm::trim(_result.first);
+    boost::algorithm::trim(_result.second);
+
+    std::cout << "<<<" << _result.first << "===" << _result.second << ">>>" << std::endl;;
+
     return _result;
   }
 
@@ -56,7 +66,7 @@ namespace tbd
     char c = '\0';
     bool _quote = false;
     int _level = 0;
-    while (_is.good())
+    while (_is)
     {
       _is.get(c);
 
@@ -89,11 +99,30 @@ namespace tbd
       _token += c;
     }
 
-    _token = trim(_token);
+    boost::algorithm::trim(_token);
     if (!_token.empty())
       _tokens.push_back(_token);
   }
   
+  template<typename STRING>
+  std::string removeWhitespaceIfNotQuote(const STRING& _str)
+  {
+    bool _quote = false;
+    std::string _result;
+    for (char c : _str)
+    {
+      if (isQuote(c)) _quote = !_quote;
+
+      if (!_quote)
+      {
+        if (std::isspace(c) && c != ' ') continue;
+      }
+
+      _result += c;
+    }
+    return _result;
+  }
+
   template<typename ISTREAM>
   void parse(
     ISTREAM& _is,
@@ -107,6 +136,8 @@ namespace tbd
     char c = '\0';
     bool _quote = false;
     int _level = 0;
+    
+    _is >> std::skipws;
     while (_is.good())
     {
       _is.get(c);
@@ -116,7 +147,7 @@ namespace tbd
       {
         if (_sep.find(c) != std::string::npos && _level == _parseLevel)
         {
-          _token = trim(_token);
+          boost::algorithm::trim(_token);
           if (!_token.empty())
           {
             _tokens.insert(splitToken(_token));
@@ -144,7 +175,7 @@ namespace tbd
       _token += c;
     }
 
-    _token = trim(_token);
+    boost::algorithm::trim(_token);
     if (!_token.empty())
       _tokens.insert(splitToken(_token));
       //_tokens.push_back(_token);

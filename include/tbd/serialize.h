@@ -14,6 +14,7 @@
 #include <boost/ref.hpp>
 #include <boost/bind.hpp>
 #include "parameter.h"
+#include "parameter_rules.h"
 
 #define REM(...) __VA_ARGS__
 #define EAT(...)
@@ -194,35 +195,30 @@ namespace tbd
     };
 
     template<template<class> class TYPE_TO_STR>
-    struct TypedTokenMapInserter
+    struct ParameterRuleInserter
     {
       typedef std::string token_type;
-      typedef std::map<token_type,std::pair<token_type,token_type>> typed_tokenmap_type;
+      typedef ParameterRules parameterrules_type;
 
-      TypedTokenMapInserter(const token_type& _prefix, typed_tokenmap_type& _tokens) :
+      ParameterRuleInserter(const token_type& _prefix, parameterrules_type& _rules) :
         prefix_(_prefix),
-        tokens_(_tokens) {}
+        rules_(_rules) {}
 
-      TypedTokenMapInserter(typed_tokenmap_type& _tokens) :
-        tokens_(_tokens) {}
+      ParameterRuleInserter(parameterrules_type& _rules) :
+        rules_(_rules) {}
 
       template<typename F>
       void operator()(const F& _f)
       {
-        token_type _key =
+        token_type _name =
           (prefix_.empty()) ? token_type(_f.name()) :
           prefix_ + "." + token_type(_f.name());
-        tokens_.insert(make_pair(_key, // Name
-                                 std::make_pair(
-                                   _f.valueAsStr(), // Value
-                                   TYPE_TO_STR<typename F::type>()() // Type
-                                 )
-                                ));
+        rules_.emplace_back(_name,_f.valueAsStr(),TYPE_TO_STR<typename F::type>()());
       }
 
     private:
       token_type prefix_;
-      typed_tokenmap_type& tokens_;
+      parameterrules_type& rules_;
     };
 
   }
@@ -257,7 +253,7 @@ namespace tbd
     typedef std::string token_type;
     typedef std::map<token_type,token_type> tokenmap_type;
     /// Parameter name, value, type
-    typedef std::map<token_type,std::pair<token_type,token_type>> typed_tokenmap_type;
+    typedef ParameterRules parameterrules_type;
 
     virtual ~SerializationInterface() {}
 
@@ -272,7 +268,7 @@ namespace tbd
     virtual void print(std::ostream& _os) const {};
 
     virtual void tokenMap(tokenmap_type& _tokens) const {};
-    virtual void typedTokenMap(typed_tokenmap_type& _tokens) const {};
+    virtual void parameterRules(parameterrules_type& _rules) const {};
     virtual void parse(const tokenmap_type& _tokens) {};
 
     /// Overloap output stream operator for convenience
@@ -388,9 +384,9 @@ namespace tbd
       });
     }
 
-    virtual void typedTokenMap(typed_tokenmap_type& _tokens) const
+    virtual void parameterRules(ParameterRules& _rules) const
     {
-      detail::visit_each(obj_,detail::TypedTokenMapInserter<TypeToStr>(_tokens));
+      detail::visit_each(obj_,detail::ParameterRuleInserter<TypeToStr>(_rules));
     }
 
     T& obj()
@@ -417,7 +413,7 @@ namespace tbd
 
     typedef EVENTHANDLER<T> eventhandler_type;
     typedef std::string token_type;
-    typedef std::map<token_type,std::pair<token_type,token_type>> typed_tokenmap_type;
+    typedef ParameterRules parameterrules_type;
     typedef std::map<token_type,token_type> tokenmap_type;
 
     /**@brief Abstract method for printing into a std::ostream
@@ -477,10 +473,10 @@ namespace tbd
       inherited_type::tokenMap(_tokens);
     }
 
-    void typedTokenMap(typed_tokenmap_type& _tokens) const
+    void parameterRules(parameterrules_type& _rules) const
     {
-      BASE::typedTokenMap(_tokens);
-      inherited_type::typedTokenMap(_tokens);
+      BASE::parameterRules(_rules);
+      inherited_type::parameterRules(_rules);
     }
   };
 
