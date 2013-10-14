@@ -14,12 +14,14 @@ using clang
 use-project /boost : ../../boost_1_52_0 ;
 
 lib RT : : <name>rt <search>/lib ;
+lib TBB : : <name>tbb <search>/usr/lib ;
 
 project
     : requirements 
       <include>./include
       #libraries to use
       <library>RT
+      <library>TBB
       <library>/boost//system
     : usage-requirements 
         #include paths    
@@ -42,6 +44,9 @@ exe parameterset_sample :
 
 exe parse_sample : 
   samples/parse.cpp ;
+
+exe parallel_for_sample : 
+  samples/parallel_for.cpp ;
 
 exe toolchain : 
   samples/ToolchainParser.cpp ;

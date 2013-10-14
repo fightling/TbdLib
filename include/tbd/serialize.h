@@ -271,14 +271,14 @@ namespace tbd
     virtual void parameterRules(parameterrules_type& _rules) const {};
     virtual void parse(const tokenmap_type& _tokens) {};
 
-    /// Overloap output stream operator for convenience
+    /// Overload output stream operator for convenience
     friend std::ostream& operator<<(std::ostream& _os, const SerializationInterface& _rhs)
     {
       _rhs.print(_os);
       return _os;
     }
 
-    /// Overloap input stream operator for convenience
+    /// Overload input stream operator for convenience
     friend std::istream& operator>>(std::istream& _is, SerializationInterface& _rhs)
     {
       _rhs.parse(_is);
