@@ -10,7 +10,6 @@ namespace tbd
   template<typename SUBOBJECT>
   struct SubobjectSerializer<SUBOBJECT> : virtual SerializationInterface
   {
-    typedef EventHandler<SUBOBJECT> eventhandler_type;
     typedef std::string token_type;
     typedef std::map<token_type,token_type> tokenmap_type;
     typedef ParameterRules parameterrules_type;
@@ -35,8 +34,7 @@ namespace tbd
 
     void parse(const tokenmap_type& _tokens)
     {
-      eventhandler_type _e(subobject_);
-      detail::visit_each(subobject_,detail::Parser<eventhandler_type>(subobject_.typeId(),_tokens,_e));
+      detail::visit_each(subobject_,detail::Parser(subobject_.typeId(),_tokens));
     }
 
     bool hasParameter(const token_type& _parameter)
@@ -57,13 +55,11 @@ namespace tbd
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)
     {
       bool _updated = false;
-      eventhandler_type _e(subobject_);
       detail::visit_each(subobject_,
           detail::ConfigSetter<
             CONFIG_PATH,
-            CONFIG,
-            eventhandler_type>
-            (_updated,_path / SUBOBJECT::typeId(),_config,_e));
+            CONFIG>
+            (_updated,_path / SUBOBJECT::typeId(),_config));
       return _updated;
     }
 

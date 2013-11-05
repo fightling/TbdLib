@@ -133,19 +133,17 @@ namespace tbd
       boost::mpl::for_each<range>(boost::bind<void>(field_visitor(), boost::ref(c), v, _1));
     }
 
-    template<typename EVENTHANDLER>
     struct Parser
     {
       typedef std::string token_type;
       typedef std::map<token_type,token_type> tokens_type;
 
-      Parser(const token_type& _prefix, const tokens_type& _tokens, EVENTHANDLER& _e) :
+      Parser(const token_type& _prefix, const tokens_type& _tokens) :
         prefix_(_prefix),
-        tokens_(_tokens),
-        e_(_e) {}
+        tokens_(_tokens) {}
 
-      Parser(const tokens_type& _tokens, EVENTHANDLER& _e) :
-        tokens_(_tokens), e_(_e) {}
+      Parser(const tokens_type& _tokens) :
+        tokens_(_tokens) {}
 
       template<typename F>
       void operator()(F _f)
@@ -158,23 +156,20 @@ namespace tbd
         if (_token.empty()) return;
         std::stringstream ss(_token);
         ss >> _f.get();
-        e_(_f);
       }
 
     private:
       token_type prefix_;
       const tokens_type& tokens_;
-      EVENTHANDLER& e_;
     };
 
-    template<typename CONFIG_PATH, typename CONFIG, typename EVENTHANDLER>
+    template<typename CONFIG_PATH, typename CONFIG>
     struct ConfigSetter
     {
-      ConfigSetter(bool& _updated, const CONFIG_PATH& _path, const CONFIG& _config, EVENTHANDLER& _e) :
+      ConfigSetter(bool& _updated, const CONFIG_PATH& _path, const CONFIG& _config) :
         updated_(_updated),
         path_(_path),
-        config_(_config),
-        e_(_e) {}
+        config_(_config) {}
 
       template<typename F>
       void operator()(F _f)
@@ -184,14 +179,12 @@ namespace tbd
         if (_value.get() == _f.valueAsStr()) return;
         std::stringstream ss(_value.get());
         ss >> _f.get();
-        e_(_f);
         updated_ = true;
       }
     private:
       bool& updated_;
       const CONFIG_PATH& path_;
       const CONFIG& config_;
-      EVENTHANDLER& e_;
     };
 
     template<template<class> class TYPE_TO_STR>
@@ -287,33 +280,8 @@ namespace tbd
   };
 
   template<typename T>
-  struct EventHandler
-  {
-    EventHandler(T& _obj) : obj_(_obj) {}
-
-    template<typename FIELD>
-    void operator()(const FIELD& _f)
-    {
-    }
-
-    T& obj()
-    {
-      return obj_;
-    }
-    T const& obj() const
-    {
-      return obj_;
-    }
-
-  private:
-    T& obj_;
-  };
-
-  template<typename T, template<class> class EVENTHANDLER = EventHandler>
   struct Serializer : virtual SerializationInterface
   {
-    typedef EVENTHANDLER<T> eventhandler_type;
-
     Serializer(T& _obj) : obj_(_obj) {}
 
     /**@brief Abstract method for printing into a std::ostream
@@ -336,8 +304,7 @@ namespace tbd
 
     virtual void parse(const tokenmap_type& _tokens)
     {
-      eventhandler_type _e(obj_);
-      detail::visit_each(obj_,detail::Parser<eventhandler_type>(_tokens,_e));
+      detail::visit_each(obj_,detail::Parser(_tokens));
     }
 
     bool hasParameter(const token_type& _parameter)
@@ -358,8 +325,7 @@ namespace tbd
     bool load(const CONFIG_PATH& _path, const CONFIG& _config)
     {
       bool _updated = false;
-      eventhandler_type _e(obj_);
-      detail::visit_each(obj_,detail::ConfigSetter<CONFIG_PATH,CONFIG,eventhandler_type>(_updated,_path,_config,_e));
+      detail::visit_each(obj_,detail::ConfigSetter<CONFIG_PATH,CONFIG>(_updated,_path,_config));
       return _updated;
     }
 
@@ -401,17 +367,16 @@ namespace tbd
     T& obj_;
   };
 
-  template<typename T, typename BASE, template<class> class EVENTHANDLER = EventHandler>
-  struct SerializerWithBase : private Serializer<T,EVENTHANDLER>, public BASE
+  template<typename T, typename BASE>
+  struct SerializerWithBase : private Serializer<T>, public BASE
   {
     typedef BASE base_type;
-    typedef Serializer<T,EVENTHANDLER> inherited_type;
+    typedef Serializer<T> inherited_type;
     template<typename...ARGS>
     SerializerWithBase(T& _obj, const ARGS&..._args) :
       inherited_type(_obj),
       base_type(_args...) {}
 
-    typedef EVENTHANDLER<T> eventhandler_type;
     typedef std::string token_type;
     typedef ParameterRules parameterrules_type;
     typedef std::map<token_type,token_type> tokenmap_type;
