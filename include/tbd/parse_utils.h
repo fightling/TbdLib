@@ -41,9 +41,6 @@ namespace tbd
 
     boost::algorithm::trim(_result.first);
     boost::algorithm::trim(_result.second);
-
-    std::cout << "<<<" << _result.first << "===" << _result.second << ">>>" << std::endl;;
-
     return _result;
   }
 

@@ -12,7 +12,7 @@ namespace tbd
     struct Union
     {
       template<typename INSERTER>
-      void operator()(const T& _a, const T& _b, T& _result, INSERTER ins)
+      void operator()(const T& _a, const T& _b, T&, INSERTER ins)
       {
         auto first1 = _a.begin(), last1 = _a.end();
         auto first2 = _b.begin(), last2 = _b.end();
@@ -52,7 +52,7 @@ namespace tbd
     struct Intersection
     {
       template<typename INSERTER>
-      void operator()(const T& _a, const T& _b, T& _result, INSERTER ins)
+      void operator()(const T& _a, const T& _b, T&, INSERTER ins)
       {
         auto first1 = _a.begin(), last1 = _a.end();
         auto first2 = _b.begin(), last2 = _b.end();
@@ -72,7 +72,7 @@ namespace tbd
     struct Difference
     {
       template<typename INSERTER>
-      void operator()(const T& _a, const T& _b, T& _result, INSERTER ins)
+      void operator()(const T& _a, const T& _b, T&, INSERTER ins)
       {
         auto first1 = _a.begin(), last1 = _a.end();
         auto first2 = _b.begin(), last2 = _b.end();
@@ -85,6 +85,7 @@ namespace tbd
         std::for_each(first1,last1,ins); 
       }
     };
+
 
     namespace 
     {

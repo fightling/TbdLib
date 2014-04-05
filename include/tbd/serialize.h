@@ -13,8 +13,167 @@
 #include <boost/mpl/range_c.hpp>
 #include <boost/ref.hpp>
 #include <boost/bind.hpp>
-#include "parameter.h"
-#include "parameter_rules.h"
+#include <map>
+#include "config.h"
+
+namespace tbd
+{
+  /**@brief SerializationInterface provides the
+   *        interface for load and save functions for all elements
+   */
+  struct SerializationInterface
+  {
+    virtual bool load(const ConfigPath& _path, Config const& _config) = 0;
+    virtual void save(const ConfigPath& _path, Config& _config) const = 0;
+    virtual void additionalParameters(Config&) const {};
+  };
+
+  namespace detail
+  {
+    template<bool HAS_SERIALIZATION_INTERFACE = true>
+    struct Load
+    {
+      template<typename T>
+      bool operator()(T& _t, const tbd::ConfigPath& _path, tbd::Config const& _config)
+      {
+        return _t.load(_path,_config);
+      }
+    };
+
+    template<>
+    struct Load<false>
+    {
+      template<typename T>
+      bool operator()(T& _t, const tbd::ConfigPath& _path, tbd::Config const& _config)
+      {
+        auto&& _valueAsStr = _config.get_optional<std::string>(_path);
+        if (!_valueAsStr) return false;
+        auto&& _value = boost::lexical_cast<T>(_valueAsStr.get());
+        if (_t == _value) return false;
+        _t=_value;
+        return true;
+      }
+    };
+
+    template<bool HAS_SERIALIZATION_INTERFACE = true>
+    struct Save
+    {
+      template<typename T, typename CONFIG>
+      void operator()(const T& _t, const tbd::ConfigPath& _path, CONFIG& _config)
+      {
+        return _t.save(_path,_config);
+      }
+    };
+
+    template<>
+    struct Save<false>
+    {
+      template<typename T, typename CONFIG>
+      void operator()(const T& _t, const tbd::ConfigPath& _path, CONFIG& _config)
+      {
+        _config.put(_path,boost::lexical_cast<std::string>(_t));
+      }
+    };
+  }
+
+  template<typename T>
+  struct Serialize
+  {
+    typedef std::string token_type;
+    constexpr static bool hasSerialization()
+    {
+      return std::is_base_of<SerializationInterface,T>::value;
+    }
+
+    template<typename CONFIG>
+    static bool load(T& _t, const tbd::ConfigPath& _path, CONFIG const& _config)
+    {
+      return detail::Load<hasSerialization()>()(_t,_path,_config);
+    }
+
+    template<typename CONFIG>
+    static void save(const T& _t, const tbd::ConfigPath& _path, CONFIG& _config)
+    {
+      detail::Save<hasSerialization()>()(_t,_path,_config);
+    }
+  };
+
+  /// Specialize float and double to assure that a common locale is used
+  template<>
+  struct Serialize<float>
+  {
+    template<typename T, typename CONFIG>
+    static bool load(T& _t, const tbd::ConfigPath& _path, CONFIG const& _config)
+    {
+      auto&& _valueAsStr = _config.template get_optional<std::string>(_path);
+      if (!_valueAsStr) return false;
+      
+      T _new;
+      std::istringstream _is(_valueAsStr.get());
+      _is >> std::boolalpha >> _new;
+      if (_t != _new)
+      {
+        _t = _new;
+        return true;
+      }
+      return false;
+    }
+    
+    template<typename T, typename CONFIG>
+    static void save(const T& _t, const tbd::ConfigPath& _path, CONFIG& _config)
+    {
+      std::ostringstream _os;
+      _os << std::boolalpha << _t;
+      detail::Save<false>()(_os.str(),_path,_config);
+    }
+  };
+
+  template<>
+  struct Serialize<double> : Serialize<float> {};
+  
+  template<>
+  struct Serialize<bool> : Serialize<float> {};
+
+  template<typename T>
+  struct Serialize<std::vector<T>>
+  {
+    typedef std::vector<T> type;
+
+    static bool load(type& _ts, const tbd::ConfigPath& _path, tbd::Config const& _config)
+    {
+      bool _updated = false;
+      _ts.clear();
+      size_t _number = _config.get<size_t>(_path / "number");
+      _ts.reserve(_number);
+      for (size_t _idx = 0; _idx < _number; ++_idx)
+      {
+        T _t;
+        _updated |= Serialize<T>::load(_t,_path / ConfigPath(std::to_string(_idx)),_config);
+        _ts.push_back(std::move(_t));
+      }
+      return _updated;
+    }
+
+    static void save(const type& _ts, const tbd::ConfigPath& _path, tbd::Config& _config)
+    {
+      _config.put(_path / "number",_ts.size());
+      for (size_t _idx = 0; _idx < _ts.size(); ++_idx)
+      {
+        Serialize<T>::save(_ts[_idx],_path / ConfigPath(std::to_string(_idx)),_config);
+      }
+    }
+  };
+
+  template<typename T>
+  struct TypeInfo
+  {
+    typedef std::string token_type;
+    token_type operator()()
+    {
+      return token_type();
+    }
+  };
+}
 
 #define REM(...) __VA_ARGS__
 #define EAT(...)
@@ -30,11 +189,27 @@
 #define PAIR(x) REM x
 
 #define TBD_PARAMETER_LIST(...) \
+private:\
 static constexpr int fields_n = BOOST_PP_VARIADIC_SIZE(__VA_ARGS__); \
 friend struct tbd::detail::reflector; \
 template<int N, class Self> \
 struct field_data {}; \
 BOOST_PP_SEQ_FOR_EACH_I(REFLECT_EACH, data, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
+/*public:\
+  typeinfo_map_type typeInfo() const\
+  {\
+    static typeinfo_map_type _typeInfo;\
+    if (_typeInfo.empty())\
+    {\
+      BOOST_PP_SEQ_FOR_EACH_I(PARAMETER_EACH, data, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))\
+    }\
+    return _typeInfo;\
+  }\
+private:\*/
+
+#define PARAMETER_EACH(r, data, i, x)\
+  _typeInfo[BOOST_PP_STRINGIZE(STRIP(x))] = tbd::TypeInfo<TYPEOF(x)>()() ?\
+    tbd::TypeInfo<TYPEOF(x)>()() : BOOST_PP_STRINGIZE(TYPEOF(x));
 
 #define REFLECT_EACH(r, data, i, x) \
 private:\
@@ -43,32 +218,47 @@ public:\
   auto STRIP(x)() const -> const decltype(BOOST_PP_CAT(STRIP(x),_))& { return BOOST_PP_CAT(STRIP(x),_); }\
 private:\
 template<class Self> \
-struct field_data<i, Self> : tbd::ParameterInterface \
+struct field_data<i, Self> : private \
+  tbd::Serialize<TYPEOF(x)> \
 { \
-    Self & self; \
     typedef TYPEOF(x) type;\
-    field_data(Self & self) : \
-      self(self) {} \
+    typedef tbd::Serialize<type> base_type;\
     \
-    std::string valueAsStr() const\
+    static bool load(Self& _self, const tbd::ConfigPath& _path, tbd::Config const& _config)\
     { \
-      return boost::lexical_cast<std::string>(get());\
+      return base_type::load(get(_self),_path / name(),_config);\
     }\
-    \
-    typename tbd::detail::make_const<Self, type>::type & get() \
-    { \
-        return self.BOOST_PP_CAT(STRIP(x),_); \
+    static void save(const Self& _self, const tbd::ConfigPath& _path, tbd::Config& _config)\
+    {\
+      base_type::save(get_const(_self),_path / name(),_config);\
     }\
-    typename boost::add_const<type>::type & get() const \
-    { \
-        return self.BOOST_PP_CAT(STRIP(x),_); \
-    }\
-    const char * name() const \
+    static const char * name() \
     {\
         return BOOST_PP_STRINGIZE(STRIP(x)); \
-    } \
-}; \
- 
+    }\
+    static std::string typeId() \
+    {\
+      return !tbd::TypeInfo<TYPEOF(x)>()().empty() ?\
+        tbd::TypeInfo<TYPEOF(x)>()() : BOOST_PP_STRINGIZE(TYPEOF(x));\
+    }\
+    static type const& get_const(Self const& _self)\
+    {\
+      return _self.BOOST_PP_CAT(STRIP(x),_);\
+    }\
+    static type& get(Self& _self)\
+    {\
+      return _self.BOOST_PP_CAT(STRIP(x),_);\
+    }\
+    static void const* get_void_const(Self const& _self)\
+    {\
+      return static_cast<void const*>(&_self.BOOST_PP_CAT(STRIP(x),_));\
+    }\
+    static void* get_void(Self& _self)\
+    {\
+      return static_cast<void*>(&_self.BOOST_PP_CAT(STRIP(x),_));\
+    }\
+};
+
 #define TBD_EXPOSE_READONLY_EACH(r, data, x) \
   auto BOOST_PP_CAT(get_,x)() const -> const decltype(x)& { return x; }
 #define TBD_EXPOSE_EACH(r, data, x) \
@@ -81,7 +271,6 @@ struct field_data<i, Self> : tbd::ParameterInterface \
 #define TBD_EXPOSE(...) \
   TBD_EXPOSE_READONLY(__VA_ARGS__)\
   BOOST_PP_SEQ_FOR_EACH(TBD_EXPOSE_EACH, _, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
-
 
 namespace tbd
 {
@@ -104,9 +293,9 @@ namespace tbd
     {
       //Get field_data at index N
       template<int N, class T>
-      static typename T::template field_data<N, T> get_field_data(T& x)
+      static typename T::template field_data<N, T> get_field_data(T&)
       {
-        return typename T::template field_data<N, T>(x);
+        return typename T::template field_data<N, T>();
       }
 
       // Get the number of fields
@@ -133,40 +322,50 @@ namespace tbd
       boost::mpl::for_each<range>(boost::bind<void>(field_visitor(), boost::ref(c), v, _1));
     }
 
-    struct Parser
+    struct HasParameter
     {
       typedef std::string token_type;
-      typedef std::map<token_type,token_type> tokens_type;
-
-      Parser(const token_type& _prefix, const tokens_type& _tokens) :
-        prefix_(_prefix),
-        tokens_(_tokens) {}
-
-      Parser(const tokens_type& _tokens) :
-        tokens_(_tokens) {}
+      HasParameter(bool& _has, token_type const& _parameter) :
+        parameter_(_parameter),
+        has_(_has) {}
 
       template<typename F>
-      void operator()(F _f)
+      void operator()(const F& _f)
       {
-        token_type _key =
-          (prefix_.empty()) ? std::string(_f.name()) :
-          prefix_ + "." + std::string(_f.name());
-        if (tokens_.count(_key) == 0) return;
-        auto& _token = tokens_.at(_key);
-        if (_token.empty()) return;
-        std::stringstream ss(_token);
-        ss >> _f.get();
+        has_ |= token_type(_f.name()) == parameter_;
       }
 
     private:
-      token_type prefix_;
-      const tokens_type& tokens_;
+      std::string const& parameter_;
+      bool& has_;
     };
 
-    template<typename CONFIG_PATH, typename CONFIG>
-    struct ConfigSetter
+    struct ParameterTypeId
     {
-      ConfigSetter(bool& _updated, const CONFIG_PATH& _path, const CONFIG& _config) :
+      typedef std::string token_type;
+      ParameterTypeId(token_type const& _parameter, token_type& _typeId) :
+        parameter_(_parameter),
+        typeId_(_typeId) {}
+
+      template<typename F>
+      void operator()(const F& _f)
+      {
+        if (_f.name() == parameter_)
+          typeId_ = _f.typeId();
+      }
+
+    private:
+      token_type const& parameter_;
+      token_type& typeId_;
+    };
+
+
+
+    template<typename T>
+    struct ParameterFromConfig
+    {
+      ParameterFromConfig(T& _t, bool& _updated, const ConfigPath& _path, const Config& _config) :
+        t_(_t),
         updated_(_updated),
         path_(_path),
         config_(_config) {}
@@ -174,158 +373,78 @@ namespace tbd
       template<typename F>
       void operator()(F _f)
       {
-        boost::optional<std::string> _value = config_.template get_optional<std::string>(path_ / CONFIG_PATH(_f.name()));
-        if (!_value) return;
-        if (_value.get() == _f.valueAsStr()) return;
-        std::stringstream ss(_value.get());
-        ss >> _f.get();
-        updated_ = true;
+        updated_ |= _f.load(t_,path_,config_);
       }
     private:
+      T& t_;
       bool& updated_;
-      const CONFIG_PATH& path_;
-      const CONFIG& config_;
+      const ConfigPath& path_;
+      const Config& config_;
     };
 
-    template<template<class> class TYPE_TO_STR>
-    struct ParameterRuleInserter
+    template<typename T>
+    struct ParameterToConfig
     {
-      typedef std::string token_type;
-      typedef ParameterRules parameterrules_type;
-
-      ParameterRuleInserter(const token_type& _prefix, parameterrules_type& _rules) :
-        prefix_(_prefix),
-        rules_(_rules) {}
-
-      ParameterRuleInserter(parameterrules_type& _rules) :
-        rules_(_rules) {}
+      ParameterToConfig(const T& _t, const ConfigPath& _path, Config& _config) :
+        t_(_t),
+        path_(_path),
+        config_(_config) {}
 
       template<typename F>
       void operator()(const F& _f)
       {
-        token_type _name =
-          (prefix_.empty()) ? token_type(_f.name()) :
-          prefix_ + "." + token_type(_f.name());
-        rules_.emplace_back(_name,_f.valueAsStr(),TYPE_TO_STR<typename F::type>()());
+        _f.save(t_,path_,config_);
       }
-
     private:
-      token_type prefix_;
-      parameterrules_type& rules_;
+      T const& t_;
+      const ConfigPath& path_;
+      Config& config_;
+    };
+
+    struct AdditionalParameters
+    {
+      AdditionalParameters(Config& _config) :
+        config_(_config) {}
+
+      template<typename F>
+      void operator()(const F& _f)
+      {
+        config_.put(ConfigPath(_f.name()) / "type",_f.typeId());
+      }
+    private:
+      Config& config_;
     };
 
   }
 
   template<typename T>
-  struct TypeToStr
-  {
-    std::string operator()()
-    {
-      return "var";
-    }
-  };
-
-#define TBD_BASE_TYPETOSTR(type,str)\
-    template<> struct TypeToStr<type> {\
-      inline std::string operator()() { return str; }};
-#define TBD_BASE_TYPETOSTR_(type)\
-    TBD_BASE_TYPETOSTR(type,#type)
-
-  TBD_BASE_TYPETOSTR_(int)
-  TBD_BASE_TYPETOSTR_(bool)
-  TBD_BASE_TYPETOSTR_(float)
-  TBD_BASE_TYPETOSTR_(double)
-  TBD_BASE_TYPETOSTR(std::string,"string")
-
-  /**@brief SerializationInterface provides the
-   *        interface for parse and print functions for all elements
-   */
-  struct SerializationInterface
-  {
-    typedef std::string typeid_type;
-    typedef std::string token_type;
-    typedef std::map<token_type,token_type> tokenmap_type;
-    /// Parameter name, value, type
-    typedef ParameterRules parameterrules_type;
-
-    virtual ~SerializationInterface() {}
-
-    /**@brief Abstract method for parsing from a std::istream
-     * @param[in] _is Input stream from which object is parsed
-     */
-    virtual void parse(std::istream& _is) {};
-
-    /**@brief Abstract method for printing into a std::ostream
-     * @param[out] _os Output stream
-     */
-    virtual void print(std::ostream& _os) const {};
-
-    virtual void tokenMap(tokenmap_type& _tokens) const {};
-    virtual void parameterRules(parameterrules_type& _rules) const {};
-    virtual void parse(const tokenmap_type& _tokens) {};
-
-    /// Overload output stream operator for convenience
-    friend std::ostream& operator<<(std::ostream& _os, const SerializationInterface& _rhs)
-    {
-      _rhs.print(_os);
-      return _os;
-    }
-
-    /// Overload input stream operator for convenience
-    friend std::istream& operator>>(std::istream& _is, SerializationInterface& _rhs)
-    {
-      _rhs.parse(_is);
-      return _is;
-    }
-  };
-
-  template<typename T>
   struct Serializer : virtual SerializationInterface
   {
-    Serializer(T& _obj) : obj_(_obj) {}
+    typedef std::string token_type;
 
-    /**@brief Abstract method for printing into a std::ostream
-     * @param[out] _os Output stream
-     */
-    virtual void print(std::ostream& _os) const
+    Serializer()
     {
-      detail::visit_each(obj_,[&](const tbd::ParameterInterface& _f)
-      {
-        _os << _f.token() << ",";
-      });
+      //buildParameterMap();
     }
 
-    virtual void parse(std::istream& _is)
-    {
-      std::map<token_type,token_type> _tokens;
-      tbd::parse(_is,_tokens,"([","])",",",1);
-      parse(_tokens);
-    }
-
-    virtual void parse(const tokenmap_type& _tokens)
-    {
-      detail::visit_each(obj_,detail::Parser(_tokens));
-    }
-
-    bool hasParameter(const token_type& _parameter)
+    bool hasParameter(const token_type& _id) const
     {
       bool _found = false;
-      detail::visit_each(obj_,[&](const tbd::ParameterInterface& _f)
-      {
-        if (token_type(_f.name()) == _parameter)
-        {
-          _found = true;
-          return;
-        }
-      });
+      detail::visit_each(derived_const(),detail::HasParameter(_found,_id));
       return _found;
     }
+  
+    token_type parameterType(const token_type& _id) const
+    {
+      std::string _type;
+      detail::visit_each(derived_const(),detail::ParameterTypeId(_id,_type));
+      return _type;
+    }
 
-    template<typename CONFIG_PATH, typename CONFIG>
-    bool load(const CONFIG_PATH& _path, const CONFIG& _config)
+    virtual bool load(const ConfigPath& _path, const Config& _config)
     {
       bool _updated = false;
-      detail::visit_each(obj_,detail::ConfigSetter<CONFIG_PATH,CONFIG>(_updated,_path,_config));
+      detail::visit_each(derived(),detail::ParameterFromConfig<T>(derived(),_updated,_path,_config));
       return _updated;
     }
 
@@ -333,117 +452,54 @@ namespace tbd
       *@param _path Config path (e.g. a std::string of the form my.path.to.param)
       *@param _config Config in which parameter (e.g. boost property tree)
      **/
-    template<typename CONFIG_PATH, typename CONFIG>
-    void save(const CONFIG_PATH& _path, CONFIG& _config) const
+    virtual void save(const ConfigPath& _path, Config& _config) const
     {
-      detail::visit_each(obj_,[&](const tbd::ParameterInterface& _f)
-      {
-        _config.put(_path / CONFIG_PATH(_f.name()),_f.valueAsStr());
-      });
+      detail::visit_each(derived_const(),detail::ParameterToConfig<T>(derived_const(),_path,_config));
     }
 
-    virtual void tokenMap(tokenmap_type& _tokens) const
+    virtual void additionalParameters(Config& _config) const
     {
-      detail::visit_each(obj_,[&](const tbd::ParameterInterface& _f)
-      {
-        _tokens.insert(make_pair(token_type(_f.name()),_f.valueAsStr()));
-      });
+      detail::visit_each(derived_const(),detail::AdditionalParameters(_config));
     }
 
-    virtual void parameterRules(ParameterRules& _rules) const
-    {
-      detail::visit_each(obj_,detail::ParameterRuleInserter<TypeToStr>(_rules));
-    }
-
-    T& obj()
-    {
-      return obj_;
-    }
-    T const& obj() const
-    {
-      return obj_;
-    }
   private:
-    T& obj_;
+    T& derived()
+    {
+      return static_cast<T&>(*this);
+    }
+    T const& derived_const() const
+    {
+      return static_cast<T const&>(*this);
+    }
   };
 
-  template<typename T, typename BASE>
-  struct SerializerWithBase : private Serializer<T>, public BASE
+  namespace parameter
   {
-    typedef BASE base_type;
-    typedef Serializer<T> inherited_type;
-    template<typename...ARGS>
-    SerializerWithBase(T& _obj, const ARGS&..._args) :
-      inherited_type(_obj),
-      base_type(_args...) {}
+    typedef std::map<std::string,std::string> ParameterMap;
 
-    typedef std::string token_type;
-    typedef ParameterRules parameterrules_type;
-    typedef std::map<token_type,token_type> tokenmap_type;
-
-    /**@brief Abstract method for printing into a std::ostream
-      * @param[out] _os Output stream
-      */
-    virtual void print(std::ostream& _os) const
+    template<typename CONFIG, typename NAME>
+    void make(
+      CONFIG& _config,
+      const NAME& _name,
+      ParameterMap const& _map = ParameterMap())
     {
-      BASE::print(_os);
-      inherited_type::print(_os);
+      for (auto& _keyValue : _map)
+      {
+        _config.put(tbd::ConfigPath(_name) / tbd::ConfigPath(_keyValue.first), _keyValue.second);
+      }
     }
 
-    virtual void parse(std::istream& _is)
+    template<typename SERIALIZER, typename CONFIG, typename NAME>
+    void make(
+      SERIALIZER const& _serializer,   
+      CONFIG& _config,
+      const NAME& _name,
+      ParameterMap const& _map = ParameterMap())
     {
-      std::string _str;
-      _is >> _str;
-      std::istringstream _iss(_str);
-      BASE::parse(_iss);
-      _iss.str(_str);
-      _iss.clear();
-      inherited_type::parse(_iss);
+      _config.put(tbd::ConfigPath(_name) / "type",_serializer.parameterType(_name));
+      make(_config,_name,_map);
     }
-
-    void parse(const tokenmap_type& _tokens)
-    {
-      BASE::parse(_tokens);
-      inherited_type::parse(_tokens);
-    }
-
-    bool hasParameter(const token_type& _parameter)
-    {
-      if (inherited_type::hasParameter(_parameter)) return true;
-      return BASE::hasParameter(_parameter);
-    }
-
-    template<typename CONFIG_PATH, typename CONFIG>
-    bool load(const CONFIG_PATH& _path, const CONFIG& _config)
-    {
-      bool _updated = BASE::load(_path,_config);
-      _updated |= inherited_type::load(_path,_config);
-      return _updated;
-    }
-
-    /**@brief Save parameter into a config
-      *@param _path Config path (e.g. a std::string of the form my.path.to.param)
-      *@param _config Config in which parameter (e.g. boost property tree)
-     **/
-    template<typename CONFIG_PATH, typename CONFIG>
-    void save(const CONFIG_PATH& _path, CONFIG& _config) const
-    {
-      BASE::save(_path,_config);
-      inherited_type::save(_path,_config);
-    }
-
-    void tokenMap(tokenmap_type& _tokens) const
-    {
-      BASE::tokenMap(_tokens);
-      inherited_type::tokenMap(_tokens);
-    }
-
-    void parameterRules(parameterrules_type& _rules) const
-    {
-      BASE::parameterRules(_rules);
-      inherited_type::parameterRules(_rules);
-    }
-  };
+  }
 
 }
 

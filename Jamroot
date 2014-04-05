@@ -54,3 +54,5 @@ exe toolchain :
 exe reflection_sample : 
   samples/reflection.cpp ;
 
+exe serialization_sample : 
+  samples/simple_serialization.cpp ;

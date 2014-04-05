@@ -110,11 +110,6 @@ namespace tbd
       return ptr_type(new T(_args...));
     }
 
-    static key_type typeId()
-    {
-      return key_type();
-    }
-
   private:
     ClassRegistrar& operator=(const ClassRegistrar&)
     {

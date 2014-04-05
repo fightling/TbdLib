@@ -63,6 +63,12 @@ namespace tbd
       boost::property_tree::json_parser::read_json(_filename,static_cast<boost::property_tree::ptree&>(*this));
     }
 
+    bool exists(const path_type& _path) const
+    {
+      auto&& _opt = get_child_optional(_path);
+      return _opt;
+    }
+
     void save(const std::string& _filename) const
     {
       boost::property_tree::json_parser::write_json(_filename,boost::property_tree::ptree(*this));
@@ -88,7 +94,6 @@ namespace tbd
     {
       using boost::property_tree::ptree; 
       traverse(ptree(_cfg),[&](
-            const ptree& _parent,
             const path_type& _childPath,
             const ptree& _child)
       {
@@ -119,7 +124,7 @@ namespace tbd
     {
       using boost::property_tree::ptree;
   
-      _method(_parent, _childPath, _child);
+      _method(_childPath, _child);
       for(auto it= _child.begin();it != _child.end(); ++it) 
       {
         auto _curPath = _childPath / ptree::path_type(it->first);
